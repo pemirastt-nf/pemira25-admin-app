@@ -7,7 +7,6 @@ export default function proxy(request: NextRequest) {
 
      // Public paths
      if (path.startsWith('/login') || path.startsWith('/_next') || path === '/favicon.ico') {
-          // If logged in and at login page, redirect to dashboard
           if (token && path.startsWith('/login')) {
                return NextResponse.redirect(new URL('/', request.url));
           }
