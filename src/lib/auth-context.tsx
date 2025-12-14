@@ -39,12 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      }, []);
 
      const checkAuth = async () => {
+          console.log("[AuthContext] Checking authentication...");
           try {
                const res = await api.get('/auth/me');
+               console.log("[AuthContext] Check success:", res.data);
                setUser(res.data);
-          } catch (error) {
+          } catch (error: any) {
+               console.error("[AuthContext] Check failed:", error);
                setUser(null);
                if (pathname !== '/login') {
+                    console.log("[AuthContext] Redirecting to login");
                     router.push('/login');
                }
           } finally {
