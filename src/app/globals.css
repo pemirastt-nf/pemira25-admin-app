@@ -5,43 +5,43 @@
 
 :root {
   --background: 44 29% 89%; /* #ebe6d9 Cream */
-  --foreground: 217 71% 20%; /* #0f2c59 Deep Blue */
+  --foreground: 212 97% 26%; /* #023E84 Deep Blue */
 
   --card: 0 0% 100%;
-  --card-foreground: 217 71% 20%;
+  --card-foreground: 212 97% 26%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 217 71% 20%;
+  --popover-foreground: 212 97% 26%;
 
-  --primary: 217 71% 20%; /* #0f2c59 */
+  --primary: 212 97% 26%; /* #023E84 */
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 41 89% 58%; /* #f2b636 Gold */
-  --secondary-foreground: 217 71% 20%;
+  --secondary: 26 100% 50%; /* #FF6D00 Orange */
+  --secondary-foreground: 212 97% 26%;
 
   --muted: 217 30% 90%;
   --muted-foreground: 215.4 16.3% 46.9%;
 
-  --accent: 41 89% 58%;
-  --accent-foreground: 217 71% 20%;
+  --accent: 190 100% 42%; /* #00B4D8 Light Blue */
+  --accent-foreground: 212 97% 26%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 217 71% 20%;
+  --ring: 212 97% 26%;
 
   --radius: 0.5rem;
 
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --chart-1: 26 100% 50%; /* Orange */
+  --chart-2: 37 100% 50%; /* Light Orange */
+  --chart-3: 190 100% 42%; /* Light Blue */
+  --chart-4: 201 100% 36%; /* Medium Blue */
+  --chart-5: 212 97% 26%; /* Deep Blue */
 
   /* Custom Offline Vote Color (Sky Blue for Light Mode) */
-  --chart-offline: 210 90% 60%;
+  --chart-offline: 190 100% 42%;
 }
 
 .dark {
