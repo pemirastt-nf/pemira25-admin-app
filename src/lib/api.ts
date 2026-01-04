@@ -28,12 +28,22 @@ export const useApi = () => api;
 // Socket.io Helper
 import { io, Socket } from 'socket.io-client';
 
-export const SOCKET_URL = envUrl.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+export const SOCKET_URL = (() => {
+     try {
+          const url = new URL(envUrl);
+          console.log('[Admin API] Socket URL derived:', url.origin);
+          return url.origin;
+     } catch (e) {
+          console.error('[Admin API] Invalid API URL for socket:', envUrl);
+          return 'http://localhost:5000';
+     }
+})();
 
 export const initSocket = (token: string | null): Socket => {
      return io(SOCKET_URL, {
           auth: { token },
           withCredentials: true,
           reconnection: true,
+          transports: ['polling', 'websocket']
      });
 };
