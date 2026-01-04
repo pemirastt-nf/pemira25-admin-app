@@ -53,12 +53,17 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                console.log("Importing data:", jsonData);
 
                // Send to backend
-               await api.post('/students/import', { students: jsonData });
+               const response = await api.post('/students/import', { students: jsonData });
+               const { success, errors, total } = response.data;
 
                onOpenChange(false);
                setFile(null);
-               // Optionally trigger a refresh of the table here (using React Query invalidation)
-               alert("Import berhasil! (Periksa konsol untuk data)");
+
+               if (errors > 0) {
+                    alert(`Import Selesai!\nTotal: ${total}\nBerhasil: ${success}\nGagal: ${errors}\n(Pastikan format nama kolom: NIM, Nama, Email)`);
+               } else {
+                    alert(`Import Berhasil! Total ${success} data masuk.`);
+               }
           } catch (err) {
                console.error(err);
                setError("Gagal memproses file. Pastikan format sesuai template.");
