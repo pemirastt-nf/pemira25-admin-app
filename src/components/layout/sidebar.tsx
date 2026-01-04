@@ -4,13 +4,43 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import Image from "next/image";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+function UnreadBadge() {
+     const [count, setCount] = useState(0);
+
+     useEffect(() => {
+          const fetchStats = async () => {
+               try {
+                    const res = await api.get('/chat/stats');
+                    setCount(res.data.openCount);
+               } catch (e) {
+                    console.error("Failed to fetch chat stats", e);
+               }
+          };
+
+          fetchStats();
+          const interval = setInterval(fetchStats, 30000); // Poll every 30s
+          return () => clearInterval(interval);
+     }, []);
+
+     if (count === 0) return null;
+
+     return (
+          <Badge variant="destructive" className="ml-auto px-1.5 py-0.5 h-5 min-w-5 flex items-center justify-center text-[10px] shadow-sm">
+               {count}
+          </Badge>
+     );
+}
 
 export const sidebarLinks = [
      { label: "Beranda", href: "/", icon: LayoutDashboard, roles: ["super_admin", "panitia", "viewer"] },
@@ -20,6 +50,7 @@ export const sidebarLinks = [
      { label: "Panitia", href: "/committee", icon: UserCog, roles: ["super_admin"] },
      { label: "Broadcast", href: "/broadcast", icon: Mail, roles: ["super_admin"] },
      { label: "Activity Logs", href: "/logs", icon: FileClock, roles: ["super_admin"] },
+     { label: "Live Chat", href: "/chat", icon: MessageCircle, roles: ["super_admin", "panitia"] },
      { label: "Pengaturan", href: "/settings", icon: Settings, roles: ["super_admin"] },
 ];
 
@@ -57,7 +88,7 @@ export function Sidebar() {
                                         key={link.href}
                                         href={link.href}
                                         className={cn(
-                                             "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                             "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-200 relative",
                                              isActive
                                                   ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
                                                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -65,6 +96,7 @@ export function Sidebar() {
                                    >
                                         <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground/70")} />
                                         {link.label}
+                                        {link.label === "Live Chat" && <UnreadBadge />}
                                    </Link>
                               );
                          })}
