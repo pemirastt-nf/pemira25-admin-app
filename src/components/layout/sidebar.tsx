@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -18,6 +18,7 @@ export const sidebarLinks = [
      { label: "Mahasiswa", href: "/students", icon: Users, roles: ["super_admin", "panitia"] },
      { label: "Suara (Votes)", href: "/votes", icon: Vote, roles: ["super_admin", "panitia"] },
      { label: "Panitia", href: "/committee", icon: UserCog, roles: ["super_admin"] },
+     { label: "Broadcast", href: "/broadcast", icon: Mail, roles: ["super_admin"] },
      { label: "Activity Logs", href: "/logs", icon: FileClock, roles: ["super_admin"] },
      { label: "Pengaturan", href: "/settings", icon: Settings, roles: ["super_admin"] },
 ];

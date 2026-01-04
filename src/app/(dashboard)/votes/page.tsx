@@ -23,10 +23,13 @@ import {
      DialogTitle,
 } from "@/components/ui/dialog";
 
+import { Input } from "@/components/ui/input";
+
 export default function VotesPage() {
      const api = useApi();
      const { user } = useAuth();
      const [candidateId, setCandidateId] = useState("");
+     const [voteCount, setVoteCount] = useState("1");
      const [submitting, setSubmitting] = useState(false);
      const [voteToDelete, setVoteToDelete] = useState<{ id: string, timestamp: string } | null>(null);
 
@@ -54,9 +57,10 @@ export default function VotesPage() {
           setSubmitting(true);
 
           try {
-               await api.post('/votes/offline', { candidateId });
-               toast.success("Suara berhasil ditambahkan");
+               await api.post('/votes/offline', { candidateId, count: parseInt(voteCount) });
+               toast.success(`Berhasil menambahkan ${voteCount} suara`);
                setCandidateId("");
+               setVoteCount("1");
                refetchLogs();
           } catch (error: any) {
                console.error(error);
@@ -114,7 +118,7 @@ export default function VotesPage() {
                          <CardContent>
                               <form onSubmit={handleManualVote} className="space-y-4">
                                    <div className="grid gap-2">
-                                        <Label>Pilih Kandidat untuk Ditambahkan (+1)</Label>
+                                        <Label>Pilih Kandidat untuk Ditambahkan</Label>
                                         <div className="grid grid-cols-2 gap-4">
                                              {candidates?.map((c: any) => (
                                                   <div key={c.id} className="relative">
@@ -140,7 +144,23 @@ export default function VotesPage() {
                                         </div>
                                    </div>
 
-                                   <Button type="submit" className="w-full" disabled={submitting || !candidateId}>
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="voteCount">Jumlah Suara</Label>
+                                        <Input
+                                             id="voteCount"
+                                             type="number"
+                                             min="1"
+                                             placeholder="Masukkan jumlah suara (misal: 10)"
+                                             value={voteCount}
+                                             onChange={(e) => setVoteCount(e.target.value)}
+                                             required
+                                        />
+                                        <p className="text-[10px] text-muted-foreground">
+                                             Masukkan angka total untuk input sekaligus (Bulk Insert).
+                                        </p>
+                                   </div>
+
+                                   <Button type="submit" className="w-full" disabled={submitting || !candidateId || !voteCount}>
                                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Tambah Suara
                                    </Button>
@@ -221,6 +241,6 @@ export default function VotesPage() {
                          </DialogFooter>
                     </DialogContent>
                </Dialog>
-          </div >
+          </div>
      );
 }
