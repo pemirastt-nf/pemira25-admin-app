@@ -32,7 +32,7 @@ import { io, Socket } from 'socket.io-client';
 export const SOCKET_URL = (() => {
      try {
           const url = new URL(envUrl);
-          console.log('[Admin API] Socket URL derived:', url.origin);
+
           return url.origin;
      } catch (e) {
           console.error('[Admin API] Invalid API URL for socket:', envUrl);

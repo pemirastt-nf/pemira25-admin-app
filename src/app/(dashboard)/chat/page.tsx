@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { api, initSocket } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { MessageCircle, Search, User, Clock, Send, Archive, MoreVertical, RefreshCw } from 'lucide-react';
+import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -67,7 +67,7 @@ export default function ChatDashboard() {
           const newSocket = initSocket(token);
 
           newSocket.on('connect', () => {
-               console.log("Admin Socket Connected");
+
                setIsConnected(true);
                newSocket.emit('join_admin');
           });

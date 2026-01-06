@@ -1,22 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { Plus, Mail, Clock, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
-import { Send, Eye, Info } from "lucide-react";
-import {
-     Dialog,
-     DialogContent,
-     DialogDescription,
-     DialogFooter,
-     DialogHeader,
-     DialogTitle,
-} from "@/components/ui/dialog";
 import {
      AlertDialog,
      AlertDialogAction,
@@ -28,248 +22,162 @@ import {
      AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function BroadcastPage() {
+// Define Broadcast Type
+interface Broadcast {
+     id: string;
+     subject: string;
+     status: 'draft' | 'processing' | 'completed' | 'failed';
+     stats: { total: number; sent: number; failed: number };
+     createdAt: string;
+     updatedAt: string;
+}
+
+export default function BroadcastListPage() {
      const api = useApi();
-     const [subject, setSubject] = useState("");
-     const [template, setTemplate] = useState("");
-     const [isSending, setIsSending] = useState(false);
+     const router = useRouter();
+     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+     const [isLoading, setIsLoading] = useState(true);
 
-     // Preview State
-     const [previewOpen, setPreviewOpen] = useState(false);
-     const [previewHtml, setPreviewHtml] = useState("");
-     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+     // Delete State
+     const [deleteId, setDeleteId] = useState<string | null>(null);
 
-     // Confirm Send State
-     const [confirmOpen, setConfirmOpen] = useState(false);
-
-     const TEMPLATES = [
-          {
-               label: "📢 Pembukaan Pemilihan",
-               subject: "[PENTING] PEMIRA STTNF Telah Dibuka! Gunakan Hak Suara Anda",
-               body: `Halo <b>{{name}}</b>,
-<br><br>
-Masa pemilihan Raya (PEMIRA) STTNF telah resmi dibuka!.
-<br><br>
-Kami mengundang Anda untuk berpartisipasi dalam menentukan masa depan organisasi mahasiswa. Suara Anda sangat berarti bagi kemajuan kampus kita.
-<br><br>
-👉 <b>Silakan login dan pilih kandidat terbaik menurut Anda.</b>
-<br><br>
-Jangan lewatkan kesempatan ini!
-<br><br>
-Salam,<br>
-Panitia PEMIRA STTNF`
-          },
-          {
-               label: "⏰ Pengingat Voting",
-               subject: "[Reminder] Sudahkah Anda Memilih di PEMIRA?",
-               body: `Halo <b>{{name}}</b>,
-<br><br>
-Kami melihat bahwa Anda belum menggunakan hak suara Anda dalam PEMIRA kali ini.
-<br><br>
-Ingat, partisipasi Anda menentukan siapa yang akan memimpin organisasi mahasiswa ke depan. Proses pemilihan sangat mudah dan cepat.
-<br><br>
-Segera login dan berikan suara Anda sebelum waktu pemilihan berakhir.
-<br><br>
-Salam,<br>
-Panitia PEMIRA STTNF`
-          },
-          {
-               label: "⚠️ Segera Berakhir",
-               subject: "[URGENT] Waktu Pemilihan Hampir Habis!",
-               body: `Halo <b>{{name}}</b>,
-<br><br>
-Waktu pemilihan tinggal sedikit lagi!
-<br><br>
-Ini adalah kesempatan terakhir Anda untuk berkontribusi. Jangan biarkan suara Anda hangus.
-<br><br>
-<b>Segera vote sekarang juga!</b>
-<br><br>
-Salam,<br>
-Panitia PEMIRA STTNF`
-          }
-     ];
-
-     const handleTemplateSelect = (tmpl: typeof TEMPLATES[0]) => {
-          setSubject(tmpl.subject);
-          setTemplate(tmpl.body);
-          toast.success("Template diterapkan!", { position: 'bottom-center' });
-     };
-
-     const handleInsertPlaceholder = (placeholder: string) => {
-          setTemplate((prev) => prev + ` {{${placeholder}}} `);
-     };
-
-     const handlePreview = async () => {
-          if (!template) {
-               toast.error("Template tidak boleh kosong");
-               return;
-          }
-
-          setIsPreviewLoading(true);
-          setPreviewOpen(true);
+     const fetchBroadcasts = async () => {
           try {
-               const res = await api.post("/broadcast/preview", { template });
-               setPreviewHtml(res.data.html);
+               const res = await api.get("/broadcast");
+               setBroadcasts(res.data);
           } catch (error) {
-               toast.error("Gagal memuat preview");
                console.error(error);
+               toast.error("Gagal memuat riwayat broadcast");
           } finally {
-               setIsPreviewLoading(false);
+               setIsLoading(false);
           }
      };
 
-     const handleSend = async () => {
-          if (!subject || !template) {
-               toast.error("Subject dan Template wajib diisi");
-               return;
-          }
-          setConfirmOpen(true);
-     };
+     useEffect(() => {
+          fetchBroadcasts();
+     }, []);
 
-     const confirmSendBroadcast = async () => {
-          setConfirmOpen(false);
-          setIsSending(true);
-
+     const handleDelete = async () => {
+          if (!deleteId) return;
           try {
-               const res = await api.post("/broadcast/send", {
-                    subject,
-                    template,
-                    target: 'all' // Default to all for now
-               });
-
-               toast.success("Broadcast berhasil dijadwalkan!", {
-                    description: `Mengirim ke ${res.data.recipientCount} penerima.`
-               });
-
-               // Optional: clear form
-               // setSubject("");
-          } catch (error: unknown) {
+               await api.delete(`/broadcast/${deleteId}`);
+               toast.success("Broadcast berhasil dihapus");
+               fetchBroadcasts();
+          } catch (error) {
                console.error(error);
-               const msg = (error as unknown as { response: { data: { message: string } } })?.response?.data?.message || "Terjadi kesalahan server";
-               toast.error("Gagal mengirim broadcast", {
-                    description: msg
-               });
+               toast.error("Gagal menghapus broadcast");
           } finally {
-               setIsSending(false);
+               setDeleteId(null);
+          }
+     };
+
+     const getStatusBadge = (status: string) => {
+          switch (status) {
+               case 'draft': return <Badge variant="secondary"><Edit className="w-3 h-3 mr-1" /> Draft</Badge>;
+               case 'processing': return <Badge className="bg-blue-500 hover:bg-blue-600"><Clock className="w-3 h-3 mr-1" /> Diproses</Badge>;
+               case 'completed': return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> Selesai</Badge>;
+               case 'failed': return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Gagal</Badge>;
+               default: return <Badge>{status}</Badge>;
           }
      };
 
      return (
           <div className="space-y-6">
-               <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Broadcast Email</h2>
-                    <p className="text-muted-foreground text-sm">Kirim email pengumuman atau informasi ke seluruh mahasiswa.</p>
+               <div className="flex justify-between items-center">
+                    <div>
+                         <h2 className="text-3xl font-bold tracking-tight">Broadcast Email</h2>
+                         <p className="text-muted-foreground text-sm">Kelola pengumuman dan notifikasi email massal.</p>
+                    </div>
+                    <Button onClick={() => router.push('/broadcast/new')}>
+                         <Plus className="w-4 h-4 mr-2" />
+                         Buat Email Baru
+                    </Button>
                </div>
 
-               <div className="grid gap-6">
-                    <Card>
-                         <CardHeader>
-                              <CardTitle>Buat Pesan Baru</CardTitle>
-                              <CardDescription>
-                                   Gunakan placeholder untuk personalisasi pesan (misal: Halo nama).
-                              </CardDescription>
-                         </CardHeader>
-                         <CardContent className="space-y-4">
-                              <div className="space-y-2">
-                                   <Label>Template Cepat</Label>
-                                   <div className="flex flex-wrap gap-2">
-                                        {TEMPLATES.map((t, idx) => (
-                                             <Button
-                                                  key={idx}
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => handleTemplateSelect(t)}
-                                                  className="bg-muted/50 border hover:border-primary hover:bg-primary/5 hover:text-primary peer-checked:bg-primary peer-checked:text-primary peer-checked:border-primary transition-all"
-                                             >
-                                                  {t.label}
-                                             </Button>
-                                        ))}
-                                   </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                   <Label htmlFor="subject">Subjek Email</Label>
-                                   <Input
-                                        id="subject"
-                                        placeholder="Contoh: Pengumuman Penting PEMIRA"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                   />
-                              </div>
-
-                              <div className="space-y-2">
-                                   <div className="flex justify-between items-center">
-                                        <Label htmlFor="template">Isi Pesan (HTML Supported)</Label>
-                                        <div className="flex gap-2">
-                                             <Button size="sm" variant="outline" onClick={() => handleInsertPlaceholder("name")}>+ Nama</Button>
-                                             <Button size="sm" variant="outline" onClick={() => handleInsertPlaceholder("nim")}>+ NIM</Button>
-                                             <Button size="sm" variant="outline" onClick={() => handleInsertPlaceholder("email")}>+ Email</Button>
+               <div className="grid gap-4">
+                    {isLoading ? (
+                         // Loading Skeletons
+                         [1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
+                    ) : broadcasts.length === 0 ? (
+                         <Card className="text-center py-12">
+                              <CardContent>
+                                   <div className="flex justify-center mb-4">
+                                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                                             <Mail className="w-6 h-6 text-muted-foreground" />
                                         </div>
                                    </div>
-                                   <Textarea
-                                        id="template"
-                                        placeholder="Tulis pesan Anda di sini..."
-                                        className="min-h-75 font-mono text-sm leading-relaxed"
-                                        value={template}
-                                        onChange={(e) => setTemplate(e.target.value)}
-                                   />
-                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Anda dapat menggunakan tag HTML dasar seperti &lt;b&gt;, &lt;br&gt;, &lt;p&gt;.
+                                   <h3 className="text-lg font-medium">Belum ada broadcast</h3>
+                                   <p className="text-sm text-muted-foreground mb-4">
+                                        Mulai buat broadcast pertamamu sekarang.
                                    </p>
-                              </div>
-                         </CardContent>
-                         <CardFooter className="flex justify-between border-t px-6 py-4">
-                              <Button variant="ghost" onClick={handlePreview} disabled={!template}>
-                                   <Eye className="w-4 h-4 mr-2" />
-                                   Preview
-                              </Button>
-                              <Button onClick={handleSend} disabled={isSending || !subject || !template}>
-                                   <Send className="w-4 h-4 mr-2" />
-                                   {isSending ? "Mengirim..." : "Kirim Broadcast"}
-                              </Button>
-                         </CardFooter>
-                    </Card>
+                                   <Button variant="outline" onClick={() => router.push('/broadcast/new')}>
+                                        Buat Sekarang
+                                   </Button>
+                              </CardContent>
+                         </Card>
+                    ) : (
+                         broadcasts.map((item) => (
+                              <Card key={item.id} className="hover:shadow-md transition-shadow group">
+                                   <CardContent className="p-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                                        <div className="space-y-1 flex-1 cursor-pointer" onClick={() => router.push(`/broadcast/${item.id}`)}>
+                                             <div className="flex items-center gap-2">
+                                                  <h3 className="font-semibold text-lg group-hover:text-primary transition-colors line-clamp-1">
+                                                       {item.subject}
+                                                  </h3>
+                                                  {getStatusBadge(item.status)}
+                                             </div>
+
+                                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                  <span>
+                                                       {format(new Date(item.updatedAt || item.createdAt), "dd MMM yyyy, HH:mm", { locale: localeId })}
+                                                  </span>
+                                                  {item.status !== 'draft' && (
+                                                       <span className="flex items-center gap-1">
+                                                            <CheckCircle className="w-3 h-3 text-green-500" />
+                                                            {item.stats?.sent || 0} Terkirim
+                                                       </span>
+                                                  )}
+                                             </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                             <Button
+                                                  variant="secondary"
+                                                  size="sm"
+                                                  onClick={() => router.push(`/broadcast/${item.id}`)}
+                                             >
+                                                  {item.status === 'draft' ? 'Edit' : 'Lihat Detail'}
+                                             </Button>
+                                             {item.status === 'draft' && (
+                                                  <Button
+                                                       variant="ghost"
+                                                       size="icon"
+                                                       className="text-muted-foreground hover:text-destructive"
+                                                       onClick={() => setDeleteId(item.id)}
+                                                  >
+                                                       <Trash2 className="w-4 h-4" />
+                                                  </Button>
+                                             )}
+                                        </div>
+                                   </CardContent>
+                              </Card>
+                         ))
+                    )}
                </div>
 
-               {/* Preview Dialog */}
-               <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                         <DialogHeader>
-                              <DialogTitle>Preview Pesan</DialogTitle>
-                              <DialogDescription>
-                                   Tampilan simulasi untuk satu mahasiswa contoh.
-                              </DialogDescription>
-                         </DialogHeader>
-
-                         <div className="border rounded-md p-4 bg-white min-h-75">
-                              {isPreviewLoading ? (
-                                   <div className="flex items-center justify-center h-full text-muted-foreground">Memuat preview...</div>
-                              ) : (
-                                   <div dangerouslySetInnerHTML={{ __html: previewHtml }} className="prose prose-sm max-w-none dark:prose-invert" />
-                              )}
-                         </div>
-
-                         <DialogFooter>
-                              <Button onClick={() => setPreviewOpen(false)}>Tutup</Button>
-                         </DialogFooter>
-                    </DialogContent>
-               </Dialog>
-
-               {/* Confirm Send Dialog */}
-               <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+               <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
                     <AlertDialogContent>
                          <AlertDialogHeader>
-                              <AlertDialogTitle>Kirim Broadcast Email?</AlertDialogTitle>
+                              <AlertDialogTitle>Hapus Draft Broadcast?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                   Tindakan ini akan mengirimkan email ke <strong>seluruh mahasiswa aktif</strong> yang memiliki email terdaftar.
-                                   <br /><br />
-                                   Pastikan konten sudah benar. Proses ini akan berjalan di latar belakang.
+                                   Tindakan ini tidak dapat dibatalkan. Draft ini akan dihapus permanen.
                               </AlertDialogDescription>
                          </AlertDialogHeader>
                          <AlertDialogFooter>
                               <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={confirmSendBroadcast}>Ya, Kirim Sekarang</AlertDialogAction>
+                              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                   Hapus
+                              </AlertDialogAction>
                          </AlertDialogFooter>
                     </AlertDialogContent>
                </AlertDialog>
