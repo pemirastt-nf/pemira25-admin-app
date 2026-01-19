@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { api, initSocket } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw } from 'lucide-react';
+import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw, Smile } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
+import EmojiPicker from 'emoji-picker-react';
+import { Theme } from 'emoji-picker-react';
 
 interface ChatSession {
      id: string;
@@ -41,6 +43,7 @@ export default function ChatDashboard() {
      const [isConnected, setIsConnected] = useState(false);
      const [inputText, setInputText] = useState("");
      const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
      const socketRef = useRef<Socket | null>(null);
      const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -255,42 +258,71 @@ export default function ChatDashboard() {
                                    {/* Messages */}
                                    <ScrollArea className="flex-1 p-6 bg-muted/20">
                                         <div className="space-y-4">
-                                             {messages.map(msg => (
-                                                  <div
-                                                       key={msg.id}
-                                                       className={cn(
-                                                            "flex w-full",
-                                                            msg.senderType === 'admin' ? "justify-end" : "justify-start"
-                                                       )}
-                                                  >
-                                                       <div className={cn(
-                                                            "max-w-[80%] rounded-2xl p-4 text-sm shadow-sm",
-                                                            msg.senderType === 'admin'
-                                                                 ? "bg-primary text-primary-foreground rounded-br-none"
-                                                                 : "bg-background text-foreground border rounded-bl-none"
-                                                       )}>
-                                                            <p>{msg.message}</p>
-                                                            <span className={cn(
-                                                                 "text-[10px] block mt-1 text-right opacity-70",
-                                                                 msg.senderType === 'admin' ? "text-primary-foreground/80" : "text-muted-foreground"
+                                             {messages.map(msg => {
+                                                  // Admin side includes: panitia, super_admin, admin, system
+                                                  const isAdminSide = msg.senderType !== 'student';
+
+                                                  return (
+                                                       <div
+                                                            key={msg.id}
+                                                            className={cn(
+                                                                 "flex w-full",
+                                                                 isAdminSide ? "justify-end" : "justify-start"
+                                                            )}
+                                                       >
+                                                            <div className={cn(
+                                                                 "max-w-[80%] rounded-2xl p-4 text-sm shadow-sm",
+                                                                 isAdminSide
+                                                                      ? "bg-primary text-primary-foreground rounded-br-none"
+                                                                      : "bg-background text-foreground border rounded-bl-none"
                                                             )}>
-                                                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
+                                                                 <p>{msg.message}</p>
+                                                                 <span className={cn(
+                                                                      "text-[10px] block mt-1 text-right opacity-70",
+                                                                      isAdminSide ? "text-primary-foreground/80" : "text-muted-foreground"
+                                                                 )}>
+                                                                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                 </span>
+                                                            </div>
                                                        </div>
-                                                  </div>
-                                             ))}
+                                                  );
+                                             })}
                                              <div ref={messagesEndRef} />
                                         </div>
                                    </ScrollArea>
 
                                    {/* Input */}
-                                   <div className="p-4 border-t bg-card">
-                                        <form onSubmit={handleSendMessage} className="flex gap-3">
+                                   <div className="p-4 border-t bg-card relative">
+                                        {/* Emoji Picker Popup */}
+                                        {showEmojiPicker && (
+                                             <div className="absolute bottom-20 left-4 z-50 shadow-xl rounded-xl overflow-hidden">
+                                                  <EmojiPicker
+                                                       onEmojiClick={(emojiData) => {
+                                                            setInputText(prev => prev + emojiData.emoji);
+                                                            setShowEmojiPicker(false);
+                                                       }}
+                                                       width={320}
+                                                       height={400}
+                                                       theme={Theme.DARK}
+                                                  />
+                                             </div>
+                                        )}
+                                        <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
+                                             <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-11 w-11 rounded-full shrink-0"
+                                                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                             >
+                                                  <Smile size={20} className="text-muted-foreground" />
+                                             </Button>
                                              <Input
                                                   value={inputText}
                                                   onChange={e => setInputText(e.target.value)}
                                                   placeholder="Ketik balasan..."
                                                   className="h-11 rounded-full bg-muted/50 border-input focus:bg-background transition-all"
+                                                  onFocus={() => setShowEmojiPicker(false)}
                                              />
                                              <Button type="submit" disabled={!isConnected || !inputText.trim()} className="h-11 w-11 rounded-full shrink-0">
                                                   <Send size={18} />
