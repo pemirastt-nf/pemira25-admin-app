@@ -64,6 +64,31 @@ export default function BroadcastEditorPage({ params }: BroadcastEditorProps) {
      const [previewHtml, setPreviewHtml] = useState("");
      const [publishOpen, setPublishOpen] = useState(false);
 
+     // CTA Config Dialog State
+     const [ctaConfigOpen, setCtaConfigOpen] = useState(false);
+     const [tempCtaText, setTempCtaText] = useState("");
+     const [tempCtaUrl, setTempCtaUrl] = useState("");
+
+     const handleOpenCtaConfig = () => {
+          setTempCtaText("VOTE SEKARANG");
+          setTempCtaUrl("https://pemira.nurulfikri.ac.id/login");
+          setCtaConfigOpen(true);
+     };
+
+     const handleSaveCtaConfig = () => {
+          const shortcode = `{{cta_button|${tempCtaText}|${tempCtaUrl}}}`;
+          setContent(prev => prev + (prev ? "\n" : "") + shortcode);
+          setCtaConfigOpen(false);
+          toast.success("Button CTA disisipkan!");
+     };
+
+     // Global CTA state removed
+     const ctaText = "";
+     const ctaUrl = "";
+     const setCtaText = (v: string) => { };
+     const setCtaUrl = (v: string) => { };
+
+
      const TEMPLATES = [
           {
                label: "📢 Pembukaan Pemilihan",
@@ -75,6 +100,8 @@ Masa pemilihan Raya (PEMIRA) STTNF telah resmi dibuka!.
 Kami mengundang Anda untuk berpartisipasi dalam menentukan masa depan organisasi mahasiswa. Suara Anda sangat berarti bagi kemajuan kampus kita.
 <br><br>
 👉 <b>Silakan login dan pilih kandidat terbaik menurut Anda.</b>
+<br><br>
+{{cta_button|LOGIN & VOTE SEKARANG|https://pemira.nurulfikri.ac.id/login}}
 <br><br>
 Jangan lewatkan kesempatan ini!
 <br><br>
@@ -90,6 +117,8 @@ Kami melihat bahwa Anda belum menggunakan hak suara Anda dalam PEMIRA kali ini.
 <br><br>
 Ingat, partisipasi Anda menentukan siapa yang akan memimpin organisasi mahasiswa ke depan. Proses pemilihan sangat mudah dan cepat.
 <br><br>
+{{cta_button|VOTE SEKARANG|https://pemira.nurulfikri.ac.id/login}}
+<br><br>
 Segera login dan berikan suara Anda sebelum waktu pemilihan berakhir.
 <br><br>
 Salam,<br>
@@ -102,9 +131,11 @@ Panitia PEMIRA STTNF`
 <br><br>
 Waktu pemilihan tinggal sedikit lagi!
 <br><br>
-Ini adalah kesempatan terakhir Anda untuk berkontribusi. Jangan biarkan suara Anda hangus.
+Portal pemilihan akan ditutup dalam beberapa jam. Pastikan Anda tidak kehilangan hak pilih Anda.
 <br><br>
-<b>Segera vote sekarang juga!</b>
+{{cta_button|VOTE SEKARANG (TERAKHIR)|https://pemira.nurulfikri.ac.id/login}}
+<br><br>
+Satu suara dari Anda sangat berharga.
 <br><br>
 Salam,<br>
 Panitia PEMIRA STTNF`
@@ -114,6 +145,9 @@ Panitia PEMIRA STTNF`
      const handleTemplateSelect = (tmpl: typeof TEMPLATES[0]) => {
           setSubject(tmpl.subject);
           setContent(tmpl.body);
+          if (!tmpl.body.includes("{{cta_button}}")) {
+               setContent(prev => prev + "\n<br><br>\n{{cta_button}}");
+          }
           toast.success("Template diterapkan!", { position: 'bottom-center' });
      };
 
@@ -133,6 +167,9 @@ Panitia PEMIRA STTNF`
                     const data = res.data;
                     setSubject(data.subject);
                     setContent(data.content);
+                    if (data.filters) {
+                         // No global CTA loading
+                    }
                     setStatus(data.status);
                     setStats(data.stats);
 
@@ -162,6 +199,10 @@ Panitia PEMIRA STTNF`
           const payload = {
                subject,
                template: content,
+               cta: {
+                    text: ctaText,
+                    url: ctaUrl
+               },
                filters: {
                     target: targetType,
                     batches: selectedBatches
@@ -192,22 +233,20 @@ Panitia PEMIRA STTNF`
           try {
                let targetId = id;
 
+               const payload = {
+                    subject,
+                    template: content,
+                    cta: { text: ctaText, url: ctaUrl },
+                    filters: { target: targetType, batches: selectedBatches }
+               };
+
                // If new, create draft first to get real ID
                if (isNew) {
-                    const res = await api.post("/broadcast/draft", {
-                         subject,
-                         template: content,
-                         filters: { target: targetType, batches: selectedBatches }
-                    });
+                    const res = await api.post("/broadcast/draft", payload);
                     targetId = res.data.id;
-                    // Optionally update URL silently or just proceed since we are redirecting anyway
                } else {
                     // Update existing
-                    await api.put(`/broadcast/${id}`, {
-                         subject,
-                         template: content,
-                         filters: { target: targetType, batches: selectedBatches }
-                    });
+                    await api.put(`/broadcast/${id}`, payload);
                }
 
                const res = await api.post(`/broadcast/${targetId}/publish`);
@@ -232,7 +271,9 @@ Panitia PEMIRA STTNF`
                await api.post("/broadcast/test-send", {
                     email: testEmail,
                     subject,
-                    template: content
+                    template: content,
+                    cta_text: ctaText,
+                    cta_url: ctaUrl
                });
                toast.success(`Email tes dikirim ke ${testEmail}`);
                setTestSendOpen(false);
@@ -245,7 +286,11 @@ Panitia PEMIRA STTNF`
           if (!content) return toast.error("Konten kosong");
           setPreviewOpen(true);
           try {
-               const res = await api.post("/broadcast/preview", { template: content });
+               const res = await api.post("/broadcast/preview", {
+                    template: content,
+                    cta_text: ctaText,
+                    cta_url: ctaUrl
+               });
                setPreviewHtml(res.data.html);
           } catch (error) {
                console.error(error);
@@ -355,8 +400,9 @@ Panitia PEMIRA STTNF`
                                                   <Label className="text-xs text-muted-foreground">Variabel tersedia:</Label>
                                                   {isEditable && (
                                                        <div className="flex gap-1">
-                                                            <Button size="sm" className="h-6 px-2 text-xs" variant="outline" onClick={() => insertPlaceholder('name')}>+ Nama</Button>
+                                                            <Button size="sm" className="h-6 px-2 text-xs" variant="outline" onClick={() => insertPlaceholder('name')}>+ Name</Button>
                                                             <Button size="sm" className="h-6 px-2 text-xs" variant="outline" onClick={() => insertPlaceholder('nim')}>+ NIM</Button>
+                                                            <Button size="sm" className="h-6 px-2 text-xs cursor-pointer" variant="outline" onClick={handleOpenCtaConfig}>+ Button CTA</Button>
                                                        </div>
                                                   )}
                                              </div>
@@ -379,6 +425,7 @@ Panitia PEMIRA STTNF`
 
                     {/* Sidebar Configuration */}
                     <div className="space-y-6">
+
                          <Card>
                               <CardHeader>
                                    <CardTitle className="text-lg">Target Penerima</CardTitle>
@@ -464,6 +511,31 @@ Panitia PEMIRA STTNF`
                          <div className="flex-1 border rounded bg-white overflow-auto p-4">
                               <div dangerouslySetInnerHTML={{ __html: previewHtml }} className="prose max-w-none" />
                          </div>
+                    </DialogContent>
+               </Dialog>
+
+               <Dialog open={ctaConfigOpen} onOpenChange={setCtaConfigOpen}>
+                    <DialogContent>
+                         <DialogHeader>
+                              <DialogTitle>Konfigurasi Tombol Aksi (CTA)</DialogTitle>
+                              <DialogDescription>
+                                   Sesuaikan teks dan link tujuan tombol yang akan disisipkan.
+                              </DialogDescription>
+                         </DialogHeader>
+                         <div className="grid gap-4 py-4">
+                              <div className="space-y-2">
+                                   <Label>Teks Tombol</Label>
+                                   <Input value={tempCtaText} onChange={e => setTempCtaText(e.target.value)} placeholder="Misal: VOTE SEKARANG" />
+                              </div>
+                              <div className="space-y-2">
+                                   <Label>Link Tujuan</Label>
+                                   <Input value={tempCtaUrl} onChange={e => setTempCtaUrl(e.target.value)} placeholder="https://..." />
+                              </div>
+                         </div>
+                         <DialogFooter>
+                              <Button variant="outline" onClick={() => setCtaConfigOpen(false)}>Batal</Button>
+                              <Button onClick={handleSaveCtaConfig}>Simpan & Sisipkan</Button>
+                         </DialogFooter>
                     </DialogContent>
                </Dialog>
 
