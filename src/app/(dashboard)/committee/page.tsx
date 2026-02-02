@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function CommitteePage() {
@@ -34,13 +35,22 @@ export default function CommitteePage() {
      const [isPasswordOpen, setIsPasswordOpen] = useState(false);
      const [selectedUser, setSelectedUser] = useState<any>(null);
      const [password, setPassword] = useState("");
+     const [selectedRole, setSelectedRole] = useState("operator_tps"); // Default role
+
+     // Edit Dialog State
+     const [isEditOpen, setIsEditOpen] = useState(false);
+     const [editForm, setEditForm] = useState({
+          name: "",
+          email: "",
+          role: "",
+          password: ""
+     });
 
      const { data: users, isLoading, refetch } = useQuery({
           queryKey: ['committee-users'],
           queryFn: async () => {
                const res = await api.get('/admin/users');
-               // Filter only admins/panitia
-               return res.data.filter((u: any) => u.role !== 'voter'); // Show only non-voters
+               return res.data.filter((u: any) => u.role !== 'voter');
           }
      });
 
@@ -56,7 +66,8 @@ export default function CommitteePage() {
 
      const handlePromoteClick = (user: any) => {
           setSelectedUser(user);
-          setPassword(""); // Reset password
+          setPassword("");
+          setSelectedRole("operator_tps");
           setIsPasswordOpen(true);
      };
 
@@ -65,8 +76,8 @@ export default function CommitteePage() {
 
           toast.promise(
                async () => {
-                    await api.patch(`/admin/users/${selectedUser.id}/role`, {
-                         role: 'panitia',
+                    await api.patch(`/admin/users/${selectedUser.id}`, {
+                         role: selectedRole,
                          password: password
                     });
                     setIsPasswordOpen(false);
@@ -85,7 +96,7 @@ export default function CommitteePage() {
      const handleDemote = async (id: string) => {
           toast.promise(
                async () => {
-                    await api.patch(`/admin/users/${id}/role`, { role: 'voter' });
+                    await api.patch(`/admin/users/${id}`, { role: 'voter' });
                     refetch();
                },
                {
@@ -142,10 +153,32 @@ export default function CommitteePage() {
      };
 
      const handleEdit = (user: any) => {
-          // Placeholder for edit functionality
           setSelectedUser(user);
-          // Could open edit dialog if implemented
-          toast.info("Edit fitur belum tersedia, gunakan hapus/tambah untuk saat ini.");
+          setEditForm({
+               name: user.name,
+               email: user.email,
+               role: user.role,
+               password: ""
+          });
+          setIsEditOpen(true);
+     };
+
+     const handleConfirmEdit = async () => {
+          if (!selectedUser) return;
+
+          toast.promise(
+               async () => {
+                    await api.patch(`/admin/users/${selectedUser.id}`, editForm);
+                    setIsEditOpen(false);
+                    setSelectedUser(null);
+                    refetch();
+               },
+               {
+                    loading: 'Menyimpan perubahan...',
+                    success: 'Data pengguna berhasil diperbarui',
+                    error: 'Gagal memperbarui data pengguna'
+               }
+          );
      };
 
      const handleCreate = () => {
@@ -212,7 +245,11 @@ export default function CommitteePage() {
                                                             ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
                                                             : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                                                             }`}>
-                                                            {user.role === 'super_admin' ? 'Super Admin' : 'Panitia'}
+                                                            {user.role === 'super_admin' ? 'Super Admin'
+                                                                 : user.role === 'operator_tps' ? 'Operator Registrasi'
+                                                                      : user.role === 'operator_suara' ? 'Operator Suara'
+                                                                           : user.role === 'operator_chat' ? 'Operator Chat'
+                                                                                : 'Panitia'}
                                                        </span>
                                                   </TableCell>
                                                   <TableCell className="text-right">
@@ -233,7 +270,7 @@ export default function CommitteePage() {
                                                                                 <Edit className="mr-2 h-4 w-4" /> Edit
                                                                            </DropdownMenuItem>
                                                                            <DropdownMenuSeparator />
-                                                                           {user.role !== 'super_admin' && ( // Prevent deleting super admin easily or restrict via backend
+                                                                           {user.role !== 'super_admin' && (
                                                                                 <DropdownMenuItem className="text-red-600" onClick={() => handleDemote(user.id)}>
                                                                                      <Shield className="mr-2 h-4 w-4" /> Demosi ke Voter
                                                                                 </DropdownMenuItem>
@@ -304,6 +341,20 @@ export default function CommitteePage() {
                               <DialogTitle>Atur Password Panitia</DialogTitle>
                          </DialogHeader>
                          <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                   <Label>Peran / Tugas</Label>
+                                   <Select onValueChange={setSelectedRole} defaultValue={selectedRole}>
+                                        <SelectTrigger>
+                                             <SelectValue placeholder="Pilih Peran" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                             <SelectItem value="operator_tps">Operator Registrasi (TPS)</SelectItem>
+                                             <SelectItem value="operator_suara">Operator Suara (Saksi)</SelectItem>
+                                             <SelectItem value="operator_chat">Operator Chat (Humas)</SelectItem>
+                                        </SelectContent>
+                                   </Select>
+                              </div>
+
                               <p className="text-sm text-muted-foreground">
                                    Untuk keamanan, silakan atur password baru untuk <strong>{selectedUser?.name}</strong> agar dapat login ke dashboard admin.
                               </p>
@@ -321,6 +372,66 @@ export default function CommitteePage() {
                                    <Button variant="outline" onClick={() => setIsPasswordOpen(false)}>Batal</Button>
                                    <Button onClick={handleConfirmPromote} disabled={!password}>
                                         Konfirmasi & Simpan
+                                   </Button>
+                              </div>
+                         </div>
+                    </DialogContent>
+               </Dialog>
+
+               {/* Edit User Dialog */}
+               <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                    <DialogContent>
+                         <DialogHeader>
+                              <DialogTitle>Edit Anggota Panitia</DialogTitle>
+                         </DialogHeader>
+                         <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                   <Label htmlFor="edit-name">Nama Lengkap</Label>
+                                   <Input
+                                        id="edit-name"
+                                        value={editForm.name}
+                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                   />
+                              </div>
+                              <div className="space-y-2">
+                                   <Label htmlFor="edit-email">Email</Label>
+                                   <Input
+                                        id="edit-email"
+                                        value={editForm.email}
+                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                   />
+                              </div>
+                              <div className="space-y-2">
+                                   <Label>Peran / Tugas</Label>
+                                   <Select
+                                        value={editForm.role}
+                                        onValueChange={(val) => setEditForm({ ...editForm, role: val })}
+                                   >
+                                        <SelectTrigger>
+                                             <SelectValue placeholder="Pilih Peran" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                             <SelectItem value="panitia">Panitia (Umum)</SelectItem>
+                                             <SelectItem value="operator_tps">Operator Registrasi (TPS)</SelectItem>
+                                             <SelectItem value="operator_suara">Operator Suara (Saksi)</SelectItem>
+                                             <SelectItem value="operator_chat">Operator Chat (Humas)</SelectItem>
+                                        </SelectContent>
+                                   </Select>
+                              </div>
+                              <div className="space-y-2">
+                                   <Label htmlFor="edit-pass">Password Baru (Opsional)</Label>
+                                   <Input
+                                        id="edit-pass"
+                                        type="password"
+                                        placeholder="Kosongkan jika tidak ingin mengubah"
+                                        value={editForm.password}
+                                        onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                                   />
+                              </div>
+                              <div className="flex justify-end gap-2 pt-2">
+                                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Batal</Button>
+                                   <Button onClick={handleConfirmEdit}>
+                                        Simpan Perubahan
                                    </Button>
                               </div>
                          </div>

@@ -25,6 +25,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function StudentsPage() {
@@ -34,6 +35,7 @@ export default function StudentsPage() {
      const [showDeleted, setShowDeleted] = useState(false);
      const api = useApi();
      const { user } = useAuth();
+     const isSuperAdmin = user?.role === 'super_admin';
 
      // OTP Confirmation & Cooldown State
      const [otpConfirmOpen, setOtpConfirmOpen] = useState(false);
@@ -53,7 +55,7 @@ export default function StudentsPage() {
 
      // Edit Student State
      const [isEditOpen, setIsEditOpen] = useState(false);
-     const [editStudent, setEditStudent] = useState<{ id: string; nim: string; name: string; email: string; batch: string } | null>(null);
+     const [editStudent, setEditStudent] = useState<{ id: string; nim: string; name: string; email: string; batch: string; accessType: string } | null>(null);
 
      // Tick for cooldown timer
      useEffect(() => {
@@ -97,13 +99,18 @@ export default function StudentsPage() {
      const handleMarkAttendance = async (nim: string) => {
           toast.promise(
                async () => {
-                    await api.post('/students/mark-attendance', { nim });
-                    refetch();
+                    const res = await api.post('/votes/checkin', { nim });
+                    refetch(); // usage of res below
+                    return res; // Pass res to success
                },
                {
-                    loading: 'Menandai kehadiran...',
-                    success: `Mahasiswa ${nim} ditandai sudah memilih!`,
-                    error: (err) => `Gagal: ${err.response?.data?.message || "Error"}`,
+                    loading: 'Verifikasi kehadiran (Offline)...',
+                    success: (res: any) => `Check-in Berhasil: ${res.data.user.name} (${res.data.user.nim})`,
+                    error: (err) => {
+                         const msg = err.response?.data?.message || "Gagal check-in";
+                         const detail = err.response?.data?.detail;
+                         return detail ? `${msg}: ${detail}` : msg;
+                    },
                }
           );
      };
@@ -143,7 +150,8 @@ export default function StudentsPage() {
                          nim: editStudent.nim,
                          name: editStudent.name,
                          email: editStudent.email,
-                         batch: editStudent.batch
+                         batch: editStudent.batch,
+                         accessType: editStudent.accessType
                     });
                     setIsEditOpen(false);
                     setEditStudent(null);
@@ -163,7 +171,8 @@ export default function StudentsPage() {
                nim: student.nim || "",
                name: student.name || "",
                email: student.email || "",
-               batch: student.batch || ""
+               batch: student.batch || "",
+               accessType: student.accessType || "online"
           });
           setIsEditOpen(true);
      };
@@ -228,7 +237,7 @@ export default function StudentsPage() {
      };
 
      const students = data?.data || [];
-     const isSuperAdmin = user?.role === 'super_admin';
+
 
      const getCooldownRemaining = (nim: string) => {
           const expiry = cooldowns[nim];
@@ -289,7 +298,8 @@ export default function StudentsPage() {
                                    <TableHead>Nama</TableHead>
                                    <TableHead>Angkatan</TableHead>
                                    <TableHead>Email</TableHead>
-                                   <TableHead>Status Voters</TableHead>
+                                   <TableHead>Akses</TableHead>
+                                   <TableHead>Status Voting</TableHead>
                                    <TableHead className="text-right">Aksi</TableHead>
                               </TableRow>
                          </TableHeader>
@@ -326,9 +336,17 @@ export default function StudentsPage() {
                                                   <TableCell>{student.batch || "-"}</TableCell>
                                                   <TableCell>{student.email}</TableCell>
                                                   <TableCell>
-                                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${student.hasVoted
-                                                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${student.accessType === 'offline'
+                                                            ? "bg-slate-100 text-slate-800 border-slate-200"
+                                                            : "bg-blue-50 text-blue-700 border-blue-200"
+                                                            }`}>
+                                                            {student.accessType === 'offline' ? "Offline (TPS)" : "Online (Web)"}
+                                                       </span>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${student.hasVoted
+                                                            ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-900"
+                                                            : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-900"
                                                             }`}>
                                                             {student.hasVoted ? "Sudah Memilih" : "Belum Memilih"}
                                                        </span>
@@ -572,6 +590,24 @@ export default function StudentsPage() {
                                              value={editStudent.email}
                                              onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
                                         />
+                                   </div>
+                                   <div className="space-y-2">
+                                        <Label>Akses Login</Label>
+                                        <Select
+                                             value={editStudent.accessType}
+                                             onValueChange={(val) => setEditStudent({ ...editStudent, accessType: val })}
+                                        >
+                                             <SelectTrigger>
+                                                  <SelectValue />
+                                             </SelectTrigger>
+                                             <SelectContent>
+                                                  <SelectItem value="online">Online (Web)</SelectItem>
+                                                  <SelectItem value="offline">Offline (TPS)</SelectItem>
+                                             </SelectContent>
+                                        </Select>
+                                        <p className="text-[10px] text-muted-foreground">
+                                             Jika &apos;Offline&apos;, mahasiswa tidak dapat login di web.
+                                        </p>
                                    </div>
                                    <div className="flex justify-end gap-2 pt-4">
                                         <Button variant="outline" onClick={() => setIsEditOpen(false)}>Batal</Button>

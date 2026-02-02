@@ -43,14 +43,14 @@ function UnreadBadge() {
 }
 
 export const sidebarLinks = [
-     { label: "Beranda", href: "/", icon: LayoutDashboard, roles: ["super_admin", "panitia", "viewer"] },
+     { label: "Beranda", href: "/", icon: LayoutDashboard, roles: ["super_admin", "panitia", "viewer", "operator_tps", "operator_suara", "operator_chat"] },
      { label: "Kandidat", href: "/candidates", icon: UserCheck, roles: ["super_admin", "panitia"] },
-     { label: "Mahasiswa", href: "/students", icon: Users, roles: ["super_admin", "panitia"] },
-     { label: "Suara (Votes)", href: "/votes", icon: Vote, roles: ["super_admin", "panitia"] },
+     { label: "Mahasiswa", href: "/students", icon: Users, roles: ["super_admin", "panitia", "operator_tps"] },
+     { label: "Suara (Votes)", href: "/votes", icon: Vote, roles: ["super_admin", "panitia", "operator_suara"] },
      { label: "Panitia", href: "/committee", icon: UserCog, roles: ["super_admin"] },
      { label: "Broadcast", href: "/broadcast", icon: Mail, roles: ["super_admin"] },
      { label: "Activity Logs", href: "/logs", icon: FileClock, roles: ["super_admin"] },
-     { label: "Live Chat", href: "/chat", icon: MessageCircle, roles: ["super_admin", "panitia"] },
+     { label: "Live Chat", href: "/chat", icon: MessageCircle, roles: ["super_admin", "panitia", "operator_chat"] },
      { label: "Pengaturan", href: "/settings", icon: Settings, roles: ["super_admin"] },
 ];
 

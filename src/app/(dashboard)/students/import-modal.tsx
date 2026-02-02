@@ -38,13 +38,17 @@ interface ColumnMapping {
 }
 
 export function ImportModal({ open, onOpenChange }: ImportModalProps) {
-     const [step, setStep] = useState<"upload" | "mapping" | "preview">("upload");
+     const [step, setStep] = useState<"upload" | "mapping" | "config" | "preview">("upload");
      const [file, setFile] = useState<File | null>(null);
      const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
 
      // Sheet Selection
      const [sheets, setSheets] = useState<string[]>([]);
      const [selectedSheet, setSelectedSheet] = useState<string>("");
+
+     // Batch Config
+     const [detectedBatches, setDetectedBatches] = useState<string[]>([]);
+     const [batchConfig, setBatchConfig] = useState<Record<string, "online" | "offline">>({});
 
      // Column Mapping
      const [headers, setHeaders] = useState<string[]>([]);
@@ -202,11 +206,27 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
           setPreviewData(processed);
 
+          setPreviewData(processed);
+
           // Auto select all valid rows
           const validIds = new Set(processed.filter(d => d.isValid).map(d => d.id));
           setSelectedRows(validIds);
 
-          setStep("preview");
+          // Detect Batches for Config Step
+          const uniqueBatches = Array.from(new Set(processed.map(d => d.batch).filter(Boolean))).sort();
+          setDetectedBatches(uniqueBatches);
+
+          // Default all to Online
+          const initialConfig: Record<string, "online" | "offline"> = {};
+          uniqueBatches.forEach(b => initialConfig[b] = "online");
+          setBatchConfig(initialConfig);
+
+          // Go to Config Step if batches exist, else Preview
+          if (uniqueBatches.length > 0) {
+               setStep("config");
+          } else {
+               setStep("preview");
+          }
      };
 
      // Preview Logic
@@ -254,7 +274,10 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                     .filter(item => selectedRows.has(item.id))
                     .map(item => item.original);
 
-               const response = await api.post('/students/import', { students: finalData });
+               const response = await api.post('/students/import', {
+                    students: finalData,
+                    batchConfig: batchConfig
+               });
                const { success, errors, total } = response.data;
 
                handleOpenChange(false);
@@ -413,6 +436,56 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                                              </Select>
                                              <p className="text-[10px] text-muted-foreground">Tahun Angkatan</p>
                                         </div>
+                                   </div>
+                              </div>
+                         )}
+
+                         {/* Step 2.5: Batch Config */}
+                         {step === "config" && (
+                              <div className="space-y-6 animate-in fade-in-50 slide-in-from-right-4">
+                                   <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
+                                        <div className="mt-0.5"><CheckCircle className="h-5 w-5" /></div>
+                                        <div>
+                                             <p className="font-semibold">Konfigurasi Akses Voting</p>
+                                             <p className="opacity-90">Sistem mendeteksi {detectedBatches.length} angkatan. Tentukan metode voting default untuk masing-masing angkatan.</p>
+                                        </div>
+                                   </div>
+
+                                   <div className="border rounded-lg overflow-hidden">
+                                        <Table>
+                                             <TableHeader className="bg-muted/50">
+                                                  <TableRow>
+                                                       <TableHead>Angkatan (Batch)</TableHead>
+                                                       <TableHead>Metode Voting Default</TableHead>
+                                                  </TableRow>
+                                             </TableHeader>
+                                             <TableBody>
+                                                  {detectedBatches.map(batch => (
+                                                       <TableRow key={batch}>
+                                                            <TableCell className="font-medium">{batch}</TableCell>
+                                                            <TableCell>
+                                                                 <Select
+                                                                      value={batchConfig[batch]}
+                                                                      onValueChange={(val: "online" | "offline") => setBatchConfig(prev => ({ ...prev, [batch]: val }))}
+                                                                 >
+                                                                      <SelectTrigger className="w-45">
+                                                                           <SelectValue />
+                                                                      </SelectTrigger>
+                                                                      <SelectContent>
+                                                                           <SelectItem value="online">Online (Web)</SelectItem>
+                                                                           <SelectItem value="offline">Offline (TPS)</SelectItem>
+                                                                      </SelectContent>
+                                                                 </Select>
+                                                                 <p className="text-[10px] text-muted-foreground mt-1">
+                                                                      {batchConfig[batch] === 'offline'
+                                                                           ? 'Mahasiswa TIDAK BISA login di web.'
+                                                                           : 'Mahasiswa bisa login & voting.'}
+                                                                 </p>
+                                                            </TableCell>
+                                                       </TableRow>
+                                                  ))}
+                                             </TableBody>
+                                        </Table>
                                    </div>
                               </div>
                          )}

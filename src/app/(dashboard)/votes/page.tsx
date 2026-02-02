@@ -8,12 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { fixUtcToWib } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useAuth } from "@/lib/auth-context";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
      Dialog,
      DialogContent,
@@ -32,6 +33,15 @@ export default function VotesPage() {
      const [voteCount, setVoteCount] = useState("1");
      const [submitting, setSubmitting] = useState(false);
      const [voteToDelete, setVoteToDelete] = useState<{ id: string, timestamp: string } | null>(null);
+
+     interface InflationDetail {
+          present: number;
+          tallied: number;
+          attempted: number;
+          excess: number;
+     }
+
+     const [inflationError, setInflationError] = useState<{ message: string; detail?: InflationDetail } | null>(null);
 
      // Fetch Candidates
      const { data: candidates } = useQuery({
@@ -55,6 +65,7 @@ export default function VotesPage() {
      const handleManualVote = async (e: React.FormEvent) => {
           e.preventDefault();
           setSubmitting(true);
+          setInflationError(null);
 
           try {
                await api.post('/votes/offline', { candidateId, count: parseInt(voteCount) });
@@ -62,9 +73,21 @@ export default function VotesPage() {
                setCandidateId("");
                setVoteCount("1");
                refetchLogs();
-          } catch (error: any) {
+          } catch (error: unknown) {
                console.error(error);
-               toast.error("Gagal menambahkan suara");
+               const err = error as { response?: { data?: { message?: string; detail?: InflationDetail } } };
+               const msg = err.response?.data?.message || "Gagal menambahkan suara";
+               const detail = err.response?.data?.detail;
+
+               if (msg.includes("PENGGELEMBUNGAN") || detail) {
+                    setInflationError({
+                         message: msg,
+                         detail: detail
+                    });
+                    toast.error("ERROR: PENGGELEMBUNGAN SUARA!", { duration: 5000 });
+               } else {
+                    toast.error(msg);
+               }
           } finally {
                setSubmitting(false);
           }
@@ -165,6 +188,41 @@ export default function VotesPage() {
                                         Tambah Suara
                                    </Button>
                               </form>
+
+                              {inflationError && (
+                                   <Alert variant="destructive" className="mt-4 border-2 border-red-600 bg-red-50 dark:bg-red-950/50 animate-in fade-in slide-in-from-top-2">
+                                        <AlertTriangle className="h-5 w-5" />
+                                        <AlertTitle className="text-lg font-bold flex items-center gap-2">
+                                             SISTEM MEMBLOKIR INPUT!
+                                        </AlertTitle>
+                                        <AlertDescription className="mt-2 text-sm">
+                                             <p className="font-semibold text-base mb-2">{inflationError.message}</p>
+                                             {inflationError.detail && (
+                                                  <div className="bg-white/50 dark:bg-black/20 p-3 rounded text-sm font-mono space-y-1">
+                                                       <div className="flex justify-between">
+                                                            <span>Kehadiran (Check-in):</span>
+                                                            <strong>{inflationError.detail.present}</strong>
+                                                       </div>
+                                                       <div className="flex justify-between">
+                                                            <span>Suara Masuk (Offline):</span>
+                                                            <strong>{inflationError.detail.tallied}</strong>
+                                                       </div>
+                                                       <div className="flex justify-between text-orange-700 dark:text-orange-400">
+                                                            <span>Input Anda:</span>
+                                                            <strong>+ {inflationError.detail.attempted}</strong>
+                                                       </div>
+                                                       <div className="border-t border-red-200 mt-1 pt-1 flex justify-between text-red-700 dark:text-red-400 font-bold">
+                                                            <span>Surplus (Penggelembungan):</span>
+                                                            <span>{inflationError.detail.excess}</span>
+                                                       </div>
+                                                  </div>
+                                             )}
+                                             <p className="mt-3 text-xs opacity-90">
+                                                  *Jumlah total suara tidak boleh melebihi jumlah mahasiswa yang melakukan check-in di TPS.
+                                             </p>
+                                        </AlertDescription>
+                                   </Alert>
+                              )}
                          </CardContent>
                     </Card>
 
