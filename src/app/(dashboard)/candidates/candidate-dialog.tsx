@@ -116,12 +116,12 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                               <Textarea id="vision" value={vision} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setVision(e.target.value)} placeholder="Visi kandidat..." />
                          </div>
                          <div className="grid gap-2">
-                              <Label htmlFor="programs">Program Unggulan (Pisahkan dengan baris baru)</Label>
-                              <Textarea id="programs" value={programs} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrograms(e.target.value)} rows={5} placeholder="1. Program pertama&#10;2. Program kedua&#10;..." />
-                         </div>
-                         <div className="grid gap-2">
                               <Label htmlFor="mission">Misi (Pisahkan dengan baris baru untuk poin-poin)</Label>
                               <Textarea id="mission" value={mission} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMission(e.target.value)} rows={5} placeholder="1. Misi pertama&#10;2. Misi kedua&#10;..." />
+                         </div>
+                         <div className="grid gap-2">
+                              <Label htmlFor="programs">Program Unggulan (Pisahkan dengan baris baru)</Label>
+                              <Textarea id="programs" value={programs} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrograms(e.target.value)} rows={5} placeholder="1. Program pertama&#10;2. Program kedua&#10;..." />
                          </div>
                          <DialogFooter>
                               <Button type="submit" disabled={loading}>

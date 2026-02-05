@@ -580,7 +580,15 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                     <DialogFooter className="px-6 py-4 border-t bg-muted/40 flex justify-between gap-2">
                          <div className="flex gap-2 mr-auto">
                               {step !== "upload" && (
-                                   <Button variant="ghost" onClick={() => setStep(step === "preview" ? "mapping" : "upload")} disabled={isProcessing}>
+                                   <Button
+                                        variant="ghost"
+                                        onClick={() => {
+                                             if (step === "mapping") setStep("upload");
+                                             else if (step === "config") setStep("mapping");
+                                             else if (step === "preview") setStep(detectedBatches.length > 0 ? "config" : "mapping");
+                                        }}
+                                        disabled={isProcessing}
+                                   >
                                         Kembali
                                    </Button>
                               )}
@@ -593,6 +601,12 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
                               {step === "mapping" && (
                                    <Button onClick={applyMapping} className="gap-2">
+                                        Lanjut Config <ArrowRight className="h-4 w-4" />
+                                   </Button>
+                              )}
+
+                              {step === "config" && (
+                                   <Button onClick={() => setStep("preview")} className="gap-2">
                                         Lanjut Preview <ArrowRight className="h-4 w-4" />
                                    </Button>
                               )}

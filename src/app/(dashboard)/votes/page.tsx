@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { fixUtcToWib } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useAuth } from "@/lib/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import {
      Dialog,
      DialogContent,
@@ -39,6 +40,7 @@ export default function VotesPage() {
           tallied: number;
           attempted: number;
           excess: number;
+          remaining: number;
      }
 
      const [inflationError, setInflationError] = useState<{ message: string; detail?: InflationDetail } | null>(null);
@@ -190,36 +192,39 @@ export default function VotesPage() {
                               </form>
 
                               {inflationError && (
-                                   <Alert variant="destructive" className="mt-4 border-2 border-red-600 bg-red-50 dark:bg-red-950/50 animate-in fade-in slide-in-from-top-2">
-                                        <AlertTriangle className="h-5 w-5" />
-                                        <AlertTitle className="text-lg font-bold flex items-center gap-2">
-                                             SISTEM MEMBLOKIR INPUT!
+                                   <Alert variant="destructive" className="mt-6 shadow-sm animate-in fade-in slide-in-from-bottom-2 bg-destructive/5 dark:bg-destructive/10 border-destructive/50">
+                                        <AlertTitle className="text-lg font-bold flex items-center gap-2 mb-2">
+                                             Sistem Memblokir Input
                                         </AlertTitle>
-                                        <AlertDescription className="mt-2 text-sm">
-                                             <p className="font-semibold text-base mb-2">{inflationError.message}</p>
+                                        <AlertDescription className="text-destructive">
+                                             <p className="font-medium mb-3">
+                                                  {inflationError.message}
+                                             </p>
+
                                              {inflationError.detail && (
-                                                  <div className="bg-white/50 dark:bg-black/20 p-3 rounded text-sm font-mono space-y-1">
-                                                       <div className="flex justify-between">
-                                                            <span>Kehadiran (Check-in):</span>
-                                                            <strong>{inflationError.detail.present}</strong>
+                                                  <div className="bg-background/60 p-3 rounded-md border border-destructive/20 text-sm space-y-2">
+                                                       <div className="flex justify-between items-center">
+                                                            <span className="text-muted-foreground">Kehadiran (Check-in):</span>
+                                                            <div className="flex items-center gap-2">
+                                                                 <Badge variant="outline" className="h-5 px-1">{inflationError.detail.present}</Badge>
+                                                                 <span className="text-xs text-muted-foreground">pemilih</span>
+                                                            </div>
                                                        </div>
-                                                       <div className="flex justify-between">
-                                                            <span>Suara Masuk (Offline):</span>
-                                                            <strong>{inflationError.detail.tallied}</strong>
+                                                       <div className="flex justify-between items-center">
+                                                            <span className="text-muted-foreground">Total Suara Masuk:</span>
+                                                            <div className="flex items-center gap-2">
+                                                                 <Badge variant="outline" className="h-5 px-1">{inflationError.detail.tallied}</Badge>
+                                                                 <span className="text-xs text-muted-foreground">suara</span>
+                                                            </div>
                                                        </div>
-                                                       <div className="flex justify-between text-orange-700 dark:text-orange-400">
-                                                            <span>Input Anda:</span>
-                                                            <strong>+ {inflationError.detail.attempted}</strong>
-                                                       </div>
-                                                       <div className="border-t border-red-200 mt-1 pt-1 flex justify-between text-red-700 dark:text-red-400 font-bold">
-                                                            <span>Surplus (Penggelembungan):</span>
-                                                            <span>{inflationError.detail.excess}</span>
+                                                       <div className="flex justify-between items-center pt-2 border-t border-destructive/20 mt-2">
+                                                            <span className="font-semibold text-orange-600 dark:text-orange-400">Sisa Kuota Suara:</span>
+                                                            <Badge variant="secondary" className="font-mono bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800">
+                                                                 {inflationError.detail.remaining}
+                                                            </Badge>
                                                        </div>
                                                   </div>
                                              )}
-                                             <p className="mt-3 text-xs opacity-90">
-                                                  *Jumlah total suara tidak boleh melebihi jumlah mahasiswa yang melakukan check-in di TPS.
-                                             </p>
                                         </AlertDescription>
                                    </Alert>
                               )}
@@ -299,6 +304,6 @@ export default function VotesPage() {
                          </DialogFooter>
                     </DialogContent>
                </Dialog>
-          </div>
+          </div >
      );
 }
