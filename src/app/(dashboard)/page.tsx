@@ -144,7 +144,7 @@ export default function DashboardPage() {
                          </CardContent>
                     </Card>
 
-                    <Card className="col-span-3 shadow-sm border-border/50">
+                    <Card className="col-span-4 md:col-span-3 shadow-sm border-border/50">
                          <CardHeader>
                               <CardTitle>Aktivitas Terbaru</CardTitle>
                               <CardDescription>

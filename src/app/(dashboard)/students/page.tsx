@@ -67,7 +67,7 @@ export default function StudentsPage() {
      const { data, isLoading, refetch } = useQuery({
           queryKey: ['students', search, showDeleted],
           queryFn: async () => {
-               const res = await api.get(`/students?search=${search}&includeDeleted=${showDeleted}`);
+               const res = await api.get(`/students?search=${search}&includeDeleted=${showDeleted}&includeAllRoles=true`);
                return res.data;
           }
      });
@@ -252,7 +252,7 @@ export default function StudentsPage() {
                          <h2 className="text-3xl font-bold tracking-tight">Mahasiswa</h2>
                          <p className="text-muted-foreground text-sm">Kelola data pemilih dan monitor status voting.</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col md:flex-row gap-2">
                          <Button onClick={() => setIsAddOpen(true)} className="gap-2" variant="outline">
                               <Plus className="h-4 w-4" />
                               Tambah Manual

@@ -411,6 +411,7 @@ export default function CommitteePage() {
                                              <SelectValue placeholder="Pilih Peran" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                             <SelectItem value="super_admin">Super Admin</SelectItem>
                                              <SelectItem value="panitia">Panitia (Umum)</SelectItem>
                                              <SelectItem value="operator_tps">Operator Registrasi (TPS)</SelectItem>
                                              <SelectItem value="operator_suara">Operator Suara (Saksi)</SelectItem>

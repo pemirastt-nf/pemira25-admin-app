@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail, MessageCircle, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -45,7 +45,8 @@ function UnreadBadge() {
 export const sidebarLinks = [
      { label: "Beranda", href: "/", icon: LayoutDashboard, roles: ["super_admin", "panitia", "viewer", "operator_tps", "operator_suara", "operator_chat"] },
      { label: "Kandidat", href: "/candidates", icon: UserCheck, roles: ["super_admin", "panitia"] },
-     { label: "Mahasiswa", href: "/students", icon: Users, roles: ["super_admin", "panitia", "operator_tps"] },
+     { label: "Mahasiswa", href: "/students", icon: Users, roles: ["super_admin", "panitia"] },
+     { label: "Check-in", href: "/checkin", icon: CheckSquare, roles: ["super_admin", "panitia", "operator_tps"] },
      { label: "Suara (Votes)", href: "/votes", icon: Vote, roles: ["super_admin", "panitia", "operator_suara"] },
      { label: "Panitia", href: "/committee", icon: UserCog, roles: ["super_admin"] },
      { label: "Broadcast", href: "/broadcast", icon: Mail, roles: ["super_admin"] },
