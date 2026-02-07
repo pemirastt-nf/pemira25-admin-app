@@ -105,7 +105,7 @@ export default function CheckInPage() {
                                    ))
                               ) : students?.length === 0 ? (
                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                                              {searchQuery ? "Tidak ditemukan mahasiswa dengan kata kunci tersebut." : "Belum ada data mahasiswa offline."}
                                         </TableCell>
                                    </TableRow>

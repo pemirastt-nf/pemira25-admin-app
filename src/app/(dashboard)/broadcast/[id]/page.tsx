@@ -145,9 +145,6 @@ Panitia PEMIRA STTNF`
      const handleTemplateSelect = (tmpl: typeof TEMPLATES[0]) => {
           setSubject(tmpl.subject);
           setContent(tmpl.body);
-          if (!tmpl.body.includes("{{cta_button}}")) {
-               setContent(prev => prev + "\n<br><br>\n{{cta_button}}");
-          }
           toast.success("Template diterapkan!", { position: 'bottom-center' });
      };
 
