@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios from "axios";
 
-const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const getEnvUrl = () => {
+     let url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+     if (url.endsWith('/')) url = url.slice(0, -1);
+     return url;
+};
+
+const envUrl = getEnvUrl();
 const baseURL = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
 
 const api = axios.create({
