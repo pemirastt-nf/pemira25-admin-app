@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { api, initSocket } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw, Smile } from 'lucide-react';
+import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw, Smile, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -155,6 +155,32 @@ export default function ChatDashboard() {
 
      const selectedSession = sessions.find(s => s.id === selectedSessionId);
 
+     const [activeTab, setActiveTab] = useState<'open' | 'archived'>('open');
+     const [isDeleting, setIsDeleting] = useState(false);
+
+     // ... existing fetches ...
+
+     const handleDeleteSession = async () => {
+          if (!selectedSessionId || !confirm("Apakah Anda yakin ingin menghapus sesi ini secara permanen?")) return;
+          setIsDeleting(true);
+          try {
+               await api.delete(`/chat/sessions/${selectedSessionId}`);
+               setSessions(prev => prev.filter(s => s.id !== selectedSessionId));
+               setSelectedSessionId(null);
+               setMessages([]);
+          } catch (error) {
+               console.error("Failed to delete session", error);
+               alert("Gagal menghapus sesi");
+          } finally {
+               setIsDeleting(false);
+          }
+     };
+
+     const filteredSessions = sessions.filter(s => {
+          if (activeTab === 'open') return s.status === 'open';
+          return s.status === 'archived' || s.status === 'closed';
+     });
+
      return (
           <div className="space-y-6">
                <div className="flex items-center justify-between">
@@ -167,11 +193,34 @@ export default function ChatDashboard() {
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
                     {/* Sidebar List */}
                     <div className="md:col-span-1 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden">
-                         <div className="p-4 border-b">
-                              <h3 className="font-semibold mb-3 flex justify-between items-center text-sm">
+                         <div className="p-4 border-b space-y-3">
+                              <h3 className="font-semibold flex justify-between items-center text-sm">
                                    Pesan Masuk
                                    <Button variant="ghost" size="icon" onClick={fetchSessions} className="h-6 w-6"><RefreshCw size={14} /></Button>
                               </h3>
+
+                              {/* Tabs */}
+                              <div className="flex p-1 bg-muted rounded-lg">
+                                   <button
+                                        onClick={() => setActiveTab('open')}
+                                        className={cn(
+                                             "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+                                             activeTab === 'open' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                   >
+                                        Aktif ({sessions.filter(s => s.status === 'open').length})
+                                   </button>
+                                   <button
+                                        onClick={() => setActiveTab('archived')}
+                                        className={cn(
+                                             "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+                                             activeTab === 'archived' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                   >
+                                        Arsip ({sessions.filter(s => s.status === 'archived' || s.status === 'closed').length})
+                                   </button>
+                              </div>
+
                               <div className="relative">
                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                    <Input placeholder="Cari..." className="pl-9 h-9" />
@@ -187,7 +236,7 @@ export default function ChatDashboard() {
                                    <div className="p-8 text-center text-muted-foreground text-sm">Belum ada percakapan</div>
                               ) : (
                                    <div className="flex flex-col">
-                                        {sessions.map(session => (
+                                        {filteredSessions.map(session => (
                                              <button
                                                   key={session.id}
                                                   onClick={() => handleSelectSession(session.id)}
@@ -244,14 +293,26 @@ export default function ChatDashboard() {
                                              </div>
                                         </div>
                                         <div className="flex gap-1">
-                                             <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  title="Arsipkan"
-                                                  onClick={handleArchiveSession}
-                                             >
-                                                  <Archive size={18} className="text-muted-foreground" />
-                                             </Button>
+                                             {activeTab === 'open' ? (
+                                                  <Button
+                                                       variant="ghost"
+                                                       size="icon"
+                                                       title="Arsipkan"
+                                                       onClick={handleArchiveSession}
+                                                  >
+                                                       <Archive size={18} className="text-muted-foreground hover:text-orange-500" />
+                                                  </Button>
+                                             ) : (
+                                                  <Button
+                                                       variant="ghost"
+                                                       size="icon"
+                                                       title="Hapus Permanen"
+                                                       onClick={handleDeleteSession}
+                                                       disabled={isDeleting}
+                                                  >
+                                                       <Trash2 size={18} className="text-muted-foreground hover:text-red-500" />
+                                                  </Button>
+                                             )}
                                         </div>
                                    </div>
 
