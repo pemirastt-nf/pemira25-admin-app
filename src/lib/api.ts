@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import axios from "axios";
+import { adminStorage } from "./storage";
 
 const getEnvUrl = () => {
      let url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -20,7 +21,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
      if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('admin_token');
+          const token = adminStorage.getItem('admin_token');
           if (token) {
                config.headers.Authorization = `Bearer ${token}`;
           }
@@ -47,10 +48,14 @@ export const SOCKET_URL = (() => {
 })();
 
 export const initSocket = (token: string | null): Socket => {
-     return io(SOCKET_URL, {
+     const socket = io(SOCKET_URL, {
           auth: { token },
           withCredentials: true,
           reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
           transports: ['polling', 'websocket']
      });
+
+     return socket;
 };

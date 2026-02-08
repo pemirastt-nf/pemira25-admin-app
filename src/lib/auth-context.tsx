@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { api } from "./api";
+import { adminStorage } from "./storage";
 
 type User = {
      id: string;
@@ -52,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      }, [checkAuth]);
 
      const login = (token: string, userData: User) => {
-          localStorage.setItem('admin_token', token);
+          adminStorage.setItem('admin_token', token);
           setUser(userData);
           // Force hard navigation to ensure clean state and middleware/layout mounting
           window.location.href = '/';
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
                console.error('Logout error', error);
           }
-          localStorage.removeItem('admin_token');
+          adminStorage.removeItem('admin_token');
           setUser(null);
           router.push('/login');
      };

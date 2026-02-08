@@ -12,6 +12,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 import EmojiPicker from 'emoji-picker-react';
 import { Theme } from 'emoji-picker-react';
+import { adminStorage } from '@/lib/storage';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface ChatSession {
      id: string;
@@ -44,9 +47,22 @@ export default function ChatDashboard() {
      const [inputText, setInputText] = useState("");
      const [isLoadingSessions, setIsLoadingSessions] = useState(true);
      const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+     const [authError, setAuthError] = useState<string | null>(null);
 
      const socketRef = useRef<Socket | null>(null);
      const messagesEndRef = useRef<HTMLDivElement>(null);
+
+     useEffect(() => {
+          fetchSessions();
+
+          const token = adminStorage.getItem('admin_token');
+          
+          if (!token) {
+               setAuthError('Admin token tidak ditemukan. Silakan login kembali.');
+               return;
+          }
+          setAuthError(null);
+     }, []);
 
      // Fetch Sessions
      const fetchSessions = async () => {
@@ -64,18 +80,24 @@ export default function ChatDashboard() {
      useEffect(() => {
           fetchSessions();
 
-          const token = localStorage.getItem('admin_token');
+          const token = adminStorage.getItem('admin_token');
+          
           if (!token) return;
 
           const newSocket = initSocket(token);
 
           newSocket.on('connect', () => {
-
                setIsConnected(true);
                newSocket.emit('join_admin');
           });
 
-          newSocket.on('disconnect', () => setIsConnected(false));
+          newSocket.on('connect_error', () => {
+               setIsConnected(false);
+          });
+
+          newSocket.on('disconnect', () => {
+               setIsConnected(false);
+          });
 
           // Listen for new sessions
           newSocket.on('new_session', () => {
@@ -127,13 +149,19 @@ export default function ChatDashboard() {
           setMessages([]); // Clear previous
           if (socketRef.current) {
                socketRef.current.emit('admin_join_session', sessionId);
+               // Also manually request message history
+               setTimeout(() => {
+                    if (socketRef.current) {
+                         socketRef.current.emit('get_message_history', { sessionId });
+                    }
+               }, 500);
           }
      };
 
      const handleSendMessage = (e: React.FormEvent) => {
           e.preventDefault();
           if (!inputText.trim() || !selectedSessionId || !socketRef.current) return;
-
+          
           socketRef.current.emit('admin_send_message', {
                sessionId: selectedSessionId,
                message: inputText
@@ -145,11 +173,20 @@ export default function ChatDashboard() {
           if (!selectedSessionId) return;
           try {
                await api.patch(`/chat/sessions/${selectedSessionId}/status`, { status: 'archived' });
-               setSessions(prev => prev.filter(s => s.id !== selectedSessionId));
-               setSelectedSessionId(null);
-               setMessages([]);
+               // Update status locally - this is the source of truth
+               setSessions(prev => prev.map(s => 
+                    s.id === selectedSessionId 
+                         ? { ...s, status: 'archived' as const }
+                         : s
+               ));
+               // Keep the session selected but switch to archived tab
+               setActiveTab('archived');
+               // Refresh after a delay to ensure backend has updated
+               setTimeout(() => fetchSessions(), 1000);
           } catch (error) {
                console.error("Failed to archive session", error);
+               // Only refresh on error to get correct state from backend
+               fetchSessions();
           }
      };
 
@@ -157,29 +194,49 @@ export default function ChatDashboard() {
 
      const [activeTab, setActiveTab] = useState<'open' | 'archived'>('open');
      const [isDeleting, setIsDeleting] = useState(false);
-
-     // ... existing fetches ...
+     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+     const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
      const handleDeleteSession = async () => {
-          if (!selectedSessionId || !confirm("Apakah Anda yakin ingin menghapus sesi ini secara permanen?")) return;
+          if (!sessionToDelete) return;
           setIsDeleting(true);
           try {
-               await api.delete(`/chat/sessions/${selectedSessionId}`);
-               setSessions(prev => prev.filter(s => s.id !== selectedSessionId));
-               setSelectedSessionId(null);
-               setMessages([]);
+               await api.delete(`/chat/sessions/${sessionToDelete}`);
+               setSessions(prev => prev.filter(s => s.id !== sessionToDelete));
+               if (selectedSessionId === sessionToDelete) {
+                    setSelectedSessionId(null);
+                    setMessages([]);
+               }
+               setSessionToDelete(null);
+               setShowDeleteDialog(false);
+               // Only refresh after delete to ensure clean state
+               setTimeout(() => fetchSessions(), 300);
+               toast.success("Sesi chat berhasil dihapus");
           } catch (error) {
                console.error("Failed to delete session", error);
-               alert("Gagal menghapus sesi");
+               toast.error("Gagal menghapus sesi chat");
           } finally {
                setIsDeleting(false);
           }
+     };
+
+     const showDeleteConfirmation = (sessionId: string) => {
+          setSessionToDelete(sessionId);
+          setShowDeleteDialog(true);
      };
 
      const filteredSessions = sessions.filter(s => {
           if (activeTab === 'open') return s.status === 'open';
           return s.status === 'archived' || s.status === 'closed';
      });
+
+     // Clear selected session if it doesn't exist in current tab
+     useEffect(() => {
+          if (selectedSessionId && !filteredSessions.find(s => s.id === selectedSessionId)) {
+               setSelectedSessionId(null);
+               setMessages([]);
+          }
+     }, [activeTab, filteredSessions, selectedSessionId]);
 
      return (
           <div className="space-y-6">
@@ -190,7 +247,48 @@ export default function ChatDashboard() {
                     </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+               {authError ? (
+                    <div className="border rounded-xl bg-card text-card-foreground shadow-sm p-8">
+                         <div className="text-center">
+                              <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">
+                                   <h3 className="font-semibold mb-2">Authentication Error</h3>
+                                   <p className="text-sm">{authError}</p>
+                              </div>
+                              <div className="space-y-2">
+                                   <Button 
+                                        onClick={() => {
+                                             adminStorage.clear();
+                                             window.location.href = '/login';
+                                        }}
+                                        className="mr-2"
+                                   >
+                                        Login Kembali
+                                   </Button>
+                                   <Button 
+                                        onClick={() => window.location.reload()}
+                                        variant="outline"
+                                        className="mr-2"
+                                   >
+                                        Refresh Page
+                                   </Button>
+                                   <Button 
+                                        onClick={() => {
+                                             const token = prompt('Masukkan admin token (untuk testing):');
+                                             if (token) {
+                                                  adminStorage.setItem('admin_token', token);
+                                                  window.location.reload();
+                                             }
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                   >
+                                        Set Token Manual
+                                   </Button>
+                              </div>
+                         </div>
+                    </div>
+               ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
                     {/* Sidebar List */}
                     <div className="md:col-span-1 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden">
                          <div className="p-4 border-b space-y-3">
@@ -250,9 +348,21 @@ export default function ChatDashboard() {
                                                   </div>
                                                   <div className="flex-1 min-w-0">
                                                        <div className="flex justify-between items-start mb-1">
-                                                            <span className="font-semibold text-sm truncate text-foreground">
-                                                                 {session.student?.name || session.guestName || "Guest"}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                 <span className="font-semibold text-sm truncate text-foreground">
+                                                                      {session.student?.name || session.guestName || "Guest"}
+                                                                 </span>
+                                                                 {session.status === 'archived' && (
+                                                                      <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
+                                                                           ARSIP
+                                                                      </span>
+                                                                 )}
+                                                                 {session.status === 'closed' && (
+                                                                      <span className="text-[9px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full">
+                                                                           TUTUP
+                                                                      </span>
+                                                                 )}
+                                                            </div>
                                                             <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
                                                                  {formatDistanceToNow(new Date(session.lastMessageAt), { addSuffix: true, locale: id })}
                                                             </span>
@@ -279,9 +389,21 @@ export default function ChatDashboard() {
                                                   <User size={20} />
                                              </div>
                                              <div>
-                                                  <h3 className="font-bold text-sm">
-                                                       {selectedSession.student?.name || selectedSession.guestName || "Guest"}
-                                                  </h3>
+                                                  <div className="flex items-center gap-2">
+                                                       <h3 className="font-bold text-sm">
+                                                            {selectedSession.student?.name || selectedSession.guestName || "Guest"}
+                                                       </h3>
+                                                       {selectedSession.status === 'archived' && (
+                                                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                                                                 ARSIP
+                                                            </span>
+                                                       )}
+                                                       {selectedSession.status === 'closed' && (
+                                                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                                                                 TUTUP
+                                                            </span>
+                                                       )}
+                                                  </div>
                                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                        <span className="flex items-center gap-1">
                                                             <Clock size={12} />
@@ -307,7 +429,7 @@ export default function ChatDashboard() {
                                                        variant="ghost"
                                                        size="icon"
                                                        title="Hapus Permanen"
-                                                       onClick={handleDeleteSession}
+                                                       onClick={() => showDeleteConfirmation(selectedSessionId!)}
                                                        disabled={isDeleting}
                                                   >
                                                        <Trash2 size={18} className="text-muted-foreground hover:text-red-500" />
@@ -319,77 +441,113 @@ export default function ChatDashboard() {
                                    {/* Messages */}
                                    <ScrollArea className="flex-1 p-6 bg-muted/20">
                                         <div className="space-y-4">
-                                             {messages.map(msg => {
-                                                  // Admin side includes: panitia, super_admin, admin, system
-                                                  const isAdminSide = msg.senderType !== 'student';
-
-                                                  return (
-                                                       <div
-                                                            key={msg.id}
-                                                            className={cn(
-                                                                 "flex w-full",
-                                                                 isAdminSide ? "justify-end" : "justify-start"
+                                             {messages.length === 0 ? (
+                                                  <div className="flex-1 flex items-center justify-center py-12">
+                                                       <div className="text-center text-muted-foreground">
+                                                            <MessageCircle size={48} className="mx-auto mb-4 opacity-50" />
+                                                            {!isConnected ? (
+                                                                 <>
+                                                                      <p className="text-sm text-red-600 mb-2">Socket tidak terkoneksi!</p>
+                                                                      <p className="text-xs mb-4">Cek console untuk error details</p>
+                                                                      <Button 
+                                                                           onClick={() => window.location.reload()} 
+                                                                           size="sm" 
+                                                                           variant="outline"
+                                                                      >
+                                                                           Refresh Page
+                                                                      </Button>
+                                                                 </>
+                                                            ) : selectedSessionId ? (
+                                                                 <>
+                                                                      <p className="text-sm">Belum ada pesan</p>
+                                                                      <p className="text-xs">Pesan akan muncul di sini</p>
+                                                                 </>
+                                                            ) : (
+                                                                 <p className="text-sm">Pilih session untuk melihat chat</p>
                                                             )}
-                                                       >
-                                                            <div className={cn(
-                                                                 "max-w-[80%] rounded-2xl p-4 text-sm shadow-sm",
-                                                                 isAdminSide
-                                                                      ? "bg-primary text-primary-foreground rounded-br-none"
-                                                                      : "bg-background text-foreground border rounded-bl-none"
-                                                            )}>
-                                                                 <p>{msg.message}</p>
-                                                                 <span className={cn(
-                                                                      "text-[10px] block mt-1 text-right opacity-70",
-                                                                      isAdminSide ? "text-primary-foreground/80" : "text-muted-foreground"
-                                                                 )}>
-                                                                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                 </span>
-                                                            </div>
                                                        </div>
-                                                  );
-                                             })}
+                                                  </div>
+                                             ) : (
+                                                  messages.map(msg => {
+                                                       // Admin side includes: panitia, super_admin, admin, system
+                                                       const isAdminSide = msg.senderType !== 'student';
+
+                                                       return (
+                                                            <div
+                                                                 key={msg.id}
+                                                                 className={cn(
+                                                                      "flex w-full",
+                                                                      isAdminSide ? "justify-end" : "justify-start"
+                                                                 )}
+                                                            >
+                                                                 <div className={cn(
+                                                                      "max-w-[80%] rounded-2xl p-4 text-sm shadow-sm",
+                                                                      isAdminSide
+                                                                           ? "bg-primary text-primary-foreground rounded-br-none"
+                                                                           : "bg-background text-foreground border rounded-bl-none"
+                                                                 )}>
+                                                                      <p>{msg.message}</p>
+                                                                      <span className={cn(
+                                                                           "text-[10px] block mt-1 text-right opacity-70",
+                                                                           isAdminSide ? "text-primary-foreground/80" : "text-muted-foreground"
+                                                                      )}>
+                                                                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                      </span>
+                                                                 </div>
+                                                            </div>
+                                                       );
+                                                  })
+                                             )}
                                              <div ref={messagesEndRef} />
                                         </div>
                                    </ScrollArea>
 
                                    {/* Input */}
-                                   <div className="p-4 border-t bg-card relative">
-                                        {/* Emoji Picker Popup */}
-                                        {showEmojiPicker && (
-                                             <div className="absolute bottom-20 left-4 z-50 shadow-xl rounded-xl overflow-hidden">
-                                                  <EmojiPicker
-                                                       onEmojiClick={(emojiData) => {
-                                                            setInputText(prev => prev + emojiData.emoji);
-                                                            setShowEmojiPicker(false);
-                                                       }}
-                                                       width={320}
-                                                       height={400}
-                                                       theme={Theme.DARK}
+                                   {selectedSession?.status === 'open' ? (
+                                        <div className="p-4 border-t bg-card relative">
+                                             {/* Emoji Picker Popup */}
+                                             {showEmojiPicker && (
+                                                  <div className="absolute bottom-20 left-4 z-50 shadow-xl rounded-xl overflow-hidden">
+                                                       <EmojiPicker
+                                                            onEmojiClick={(emojiData) => {
+                                                                 setInputText(prev => prev + emojiData.emoji);
+                                                                 setShowEmojiPicker(false);
+                                                            }}
+                                                            width={320}
+                                                            height={400}
+                                                            theme={Theme.DARK}
+                                                       />
+                                                  </div>
+                                             )}
+                                             <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
+                                                  <Button
+                                                       type="button"
+                                                       variant="ghost"
+                                                       size="icon"
+                                                       className="h-11 w-11 rounded-full shrink-0"
+                                                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                  >
+                                                       <Smile size={20} className="text-muted-foreground" />
+                                                  </Button>
+                                                  <Input
+                                                       value={inputText}
+                                                       onChange={e => setInputText(e.target.value)}
+                                                       placeholder="Ketik balasan..."
+                                                       className="h-11 rounded-full bg-muted/50 border-input focus:bg-background transition-all"
+                                                       onFocus={() => setShowEmojiPicker(false)}
                                                   />
-                                             </div>
-                                        )}
-                                        <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
-                                             <Button
-                                                  type="button"
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-11 w-11 rounded-full shrink-0"
-                                                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                             >
-                                                  <Smile size={20} className="text-muted-foreground" />
-                                             </Button>
-                                             <Input
-                                                  value={inputText}
-                                                  onChange={e => setInputText(e.target.value)}
-                                                  placeholder="Ketik balasan..."
-                                                  className="h-11 rounded-full bg-muted/50 border-input focus:bg-background transition-all"
-                                                  onFocus={() => setShowEmojiPicker(false)}
-                                             />
-                                             <Button type="submit" disabled={!isConnected || !inputText.trim()} className="h-11 w-11 rounded-full shrink-0">
-                                                  <Send size={18} />
-                                             </Button>
-                                        </form>
-                                   </div>
+                                                  <Button type="submit" disabled={!isConnected || !inputText.trim()} className="h-11 w-11 rounded-full shrink-0">
+                                                       <Send size={18} />
+                                                  </Button>
+                                             </form>
+                                        </div>
+                                   ) : (
+                                        <div className="p-4 border-t bg-muted/30 text-center">
+                                             <p className="text-sm text-muted-foreground">
+                                                  Percakapan ini telah {selectedSession?.status === 'archived' ? 'diarsipkan' : 'ditutup'}
+                                             </p>
+                                        </div>
+                                   )}
                               </>
                          ) : (
                               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-muted/10">
@@ -402,6 +560,39 @@ export default function ChatDashboard() {
                          )}
                     </div>
                </div>
+               )}
+
+               {/* Delete Confirmation Dialog */}
+               <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                    <AlertDialogContent>
+                         <AlertDialogHeader>
+                              <AlertDialogTitle>Hapus Sesi Chat Permanen?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                   <span className="text-destructive font-bold">PERINGATAN!</span><br />
+                                   Tindakan ini akan menghapus sesi chat secara permanen dari database. 
+                                   Semua pesan dalam sesi ini akan <strong>HILANG SELAMANYA</strong> dan tidak dapat dipulihkan.
+                              </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => {
+                                   setSessionToDelete(null);
+                                   setShowDeleteDialog(false);
+                              }}>
+                                   Batal
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                   onClick={handleDeleteSession}
+                                   className="bg-destructive hover:bg-destructive/90"
+                                   disabled={isDeleting}
+                              >
+                                   {isDeleting ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                   ) : null}
+                                   Ya, Hapus Permanen
+                              </AlertDialogAction>
+                         </AlertDialogFooter>
+                    </AlertDialogContent>
+               </AlertDialog>
           </div>
      );
 }
