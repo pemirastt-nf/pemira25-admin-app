@@ -6,12 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileUp, Search, RefreshCw, Mail, CheckCircle2, Trash2, Undo2, XCircle, Plus, Pencil } from "lucide-react";
+import { DataTable } from "@/components/data-table";
+import { FileUp, Search, RefreshCw, Plus } from "lucide-react";
 import { ImportModal } from "./import-modal";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { Skeleton } from "@/components/ui/skeleton";
+import { createColumns, Student } from "./columns";
 import {
      AlertDialog,
      AlertDialogAction,
@@ -26,7 +26,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 
 export default function StudentsPage() {
      const [search, setSearch] = useState("");
@@ -236,14 +235,27 @@ export default function StudentsPage() {
           }
      };
 
-     const students = data?.data || [];
-
+     const students: Student[] = data?.data || [];
 
      const getCooldownRemaining = (nim: string) => {
           const expiry = cooldowns[nim];
           if (!expiry) return 0;
           return Math.max(0, Math.ceil((expiry - now) / 1000));
      };
+
+     // Column actions for data table
+     const columnActions = {
+          onEdit: openEditDialog,
+          onDelete: handleDeleteStudent,
+          onRestore: handleRestore,
+          onPermanentDelete: handlePermanentDelete,
+          onResendOtp: handleResendOtpClick,
+          onMarkAttendance: handleMarkAttendance,
+          getCooldownRemaining,
+          isSuperAdmin,
+     };
+
+     const columns = createColumns(columnActions);
 
      return (
           <div className="space-y-6">
@@ -264,22 +276,19 @@ export default function StudentsPage() {
                     </div>
                </div>
 
-               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
-                    <div className="flex items-center gap-2 max-w-sm w-full">
-                         <div className="relative flex-1">
-                              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                   placeholder="Cari nama atau NIM..."
-                                   className="pl-8"
-                                   value={search}
-                                   onChange={(e) => setSearch(e.target.value)}
-                              />
-                         </div>
-                         <Button variant="outline" size="icon" onClick={() => refetch()}>
-                              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                         </Button>
+               <div className="mb-4 flex items-center gap-4">
+                    <div className="relative flex-1 max-w-sm">
+                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                         <Input
+                              placeholder="Cari nama atau NIM..."
+                              className="pl-8"
+                              value={search}
+                              onChange={(e) => setSearch(e.target.value)}
+                         />
                     </div>
-
+                    <Button variant="outline" size="icon" onClick={() => refetch()}>
+                         <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    </Button>
                     <div className="flex items-center space-x-2">
                          <Switch
                               id="show-deleted"
@@ -290,149 +299,10 @@ export default function StudentsPage() {
                     </div>
                </div>
 
-               <div className="border rounded-lg bg-card overflow-x-auto">
-                    <Table>
-                         <TableHeader>
-                              <TableRow>
-                                   <TableHead>NIM</TableHead>
-                                   <TableHead>Nama</TableHead>
-                                   <TableHead>Angkatan</TableHead>
-                                   <TableHead>Email</TableHead>
-                                   <TableHead>Akses</TableHead>
-                                   <TableHead>Status Voting</TableHead>
-                                   <TableHead className="text-right">Aksi</TableHead>
-                              </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                              {isLoading ? (
-                                   Array.from({ length: 10 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                             <TableCell><Skeleton className="h-4 w-25" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-50" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-62.5" /></TableCell>
-                                             <TableCell><Skeleton className="h-6 w-30 rounded-full" /></TableCell>
-                                             <TableCell className="text-right">
-                                                  <div className="flex justify-end gap-1">
-                                                       <Skeleton className="h-8 w-8 rounded-md" />
-                                                       <Skeleton className="h-8 w-8 rounded-md" />
-                                                       <Skeleton className="h-8 w-8 rounded-md" />
-                                                  </div>
-                                             </TableCell>
-                                        </TableRow>
-                                   ))
-                              ) : (
-                                   students.map((student: any) => {
-                                        const isDeleted = !!student.deletedAt;
-                                        const cooldown = getCooldownRemaining(student.nim);
-
-                                        return (
-                                             <TableRow key={student.id} className={isDeleted ? "opacity-50 bg-destructive/5 hover:bg-destructive/10" : ""}>
-                                                  <TableCell className="font-medium">
-                                                       {student.nim}
-                                                       {isDeleted && <span className="ml-2 text-[10px] text-destructive border border-destructive px-1 rounded">DELETED</span>}
-                                                  </TableCell>
-                                                  <TableCell>{student.name}</TableCell>
-                                                  <TableCell>{student.batch || "-"}</TableCell>
-                                                  <TableCell>{student.email}</TableCell>
-                                                  <TableCell>
-                                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${student.accessType === 'offline'
-                                                            ? "bg-slate-100 text-slate-800 border-slate-200"
-                                                            : "bg-blue-50 text-blue-700 border-blue-200"
-                                                            }`}>
-                                                            {student.accessType === 'offline' ? "Offline (TPS)" : "Online (Web)"}
-                                                       </span>
-                                                  </TableCell>
-                                                  <TableCell>
-                                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${student.hasVoted
-                                                            ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-900"
-                                                            : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-900"
-                                                            }`}>
-                                                            {student.hasVoted ? "Sudah Memilih" : "Belum Memilih"}
-                                                       </span>
-                                                  </TableCell>
-                                                  <TableCell className="text-right">
-                                                       <div className="flex items-center justify-end gap-1">
-                                                            {!student.hasVoted && !isDeleted && (
-                                                                 <Button
-                                                                      size="sm"
-                                                                      variant="ghost"
-                                                                      className="h-8 w-8 p-0"
-                                                                      onClick={() => handleResendOtpClick(student)}
-                                                                      disabled={cooldown > 0}
-                                                                      title={cooldown > 0 ? `Tunggu ${cooldown}d` : "Kirim Ulang OTP"}
-                                                                 >
-                                                                      {cooldown > 0 ? (
-                                                                           <span className="text-xs font-mono">{cooldown}s</span>
-                                                                      ) : (
-                                                                           <Mail className="h-4 w-4" />
-                                                                      )}
-                                                                 </Button>
-                                                            )}
-                                                            {!student.hasVoted && !isDeleted && (
-                                                                 <Button
-                                                                      size="sm"
-                                                                      variant="ghost"
-                                                                      className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                      onClick={() => handleMarkAttendance(student.nim)}
-                                                                      title="Tandai Hadir (Offline)"
-                                                                 >
-                                                                      <CheckCircle2 className="h-4 w-4" />
-                                                                 </Button>
-                                                            )}
-                                                            {!isDeleted && (
-                                                                 <Button
-                                                                      size="sm"
-                                                                      variant="ghost"
-                                                                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                      onClick={() => openEditDialog(student)}
-                                                                      title="Edit Data"
-                                                                 >
-                                                                      <Pencil className="h-4 w-4" />
-                                                                 </Button>
-                                                            )}
-                                                            {isSuperAdmin && !isDeleted && (
-                                                                 <Button
-                                                                      size="sm"
-                                                                      variant="ghost"
-                                                                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                      onClick={() => handleDeleteStudent(student)}
-                                                                      title="Hapus Data (Soft Delete)"
-                                                                 >
-                                                                      <Trash2 className="h-4 w-4" />
-                                                                 </Button>
-                                                            )}
-                                                            {isSuperAdmin && isDeleted && (
-                                                                 <>
-                                                                      <Button
-                                                                           size="sm"
-                                                                           variant="ghost"
-                                                                           className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                           onClick={() => handleRestore(student)}
-                                                                           title="Pulihkan Data (Restore)"
-                                                                      >
-                                                                           <Undo2 className="h-4 w-4" />
-                                                                      </Button>
-                                                                      <Button
-                                                                           size="sm"
-                                                                           variant="ghost"
-                                                                           className="h-8 w-8 p-0 text-red-700 hover:text-red-800 hover:bg-red-100"
-                                                                           onClick={() => handlePermanentDelete(student)}
-                                                                           title="Hapus Permanen"
-                                                                      >
-                                                                           <XCircle className="h-4 w-4" />
-                                                                      </Button>
-                                                                 </>
-                                                            )}
-                                                       </div>
-                                                  </TableCell>
-                                             </TableRow>
-                                        );
-                                   })
-                              )}
-                         </TableBody>
-                    </Table>
-               </div>
+               <DataTable 
+                    columns={columns} 
+                    data={students.map(student => ({ ...student, deletedAt: student.deletedAt }))} 
+               />
 
                <ImportModal open={isImportOpen} onOpenChange={setIsImportOpen} />
 
