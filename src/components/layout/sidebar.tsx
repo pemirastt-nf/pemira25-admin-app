@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail, MessageCircle, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Vote, Settings, LogOut, FileClock, UserCog, Mail, MessageCircle, CheckSquare, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -53,6 +53,7 @@ export const sidebarLinks = [
      { label: "Activity Logs", href: "/logs", icon: FileClock, roles: ["super_admin"] },
      { label: "Live Chat", href: "/chat", icon: MessageCircle, roles: ["super_admin", "panitia", "operator_chat"] },
      { label: "Pengaturan", href: "/settings", icon: Settings, roles: ["super_admin"] },
+     { label: "SMTP", href: "/smtp", icon: Server, roles: ["super_admin"] },
 ];
 
 export function Sidebar() {
