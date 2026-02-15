@@ -7,13 +7,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Loader2, Upload, X } from "lucide-react";
+import Image from "next/image";
 
 export function CandidateDialog({ children, candidate, onSuccess }: { children: React.ReactNode; candidate?: any; onSuccess: () => void }) {
      const api = useApi();
      const [open, setOpen] = useState(false);
      const [loading, setLoading] = useState(false);
+     const [uploading, setUploading] = useState(false);
+     const fileInputRef = useRef<HTMLInputElement>(null);
 
      // Form States
      const [chairmanName, setChairmanName] = useState("");
@@ -23,6 +26,56 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
      const [mission, setMission] = useState("");
      const [programs, setPrograms] = useState("");
      const [photoUrl, setPhotoUrl] = useState("");
+
+     // Convert to WebP and Upload
+     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          try {
+               setUploading(true);
+
+               // 1. Convert to WebP Client-Side
+               const webpBlob = await convertToWebP(file);
+               
+               // 2. Prepare Form Data
+               const formData = new FormData();
+               formData.append('file', webpBlob, `${file.name.split('.')[0]}.webp`);
+
+               // 3. Upload to Backend
+               const res = await api.post('/upload', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+               });
+
+               setPhotoUrl(res.data.url);
+          } catch (error) {
+               console.error("Upload failed", error);
+               alert("Gagal mengupload gambar. Pastikan format sesuai.");
+          } finally {
+               setUploading(false);
+          }
+     };
+
+     const convertToWebP = (file: File): Promise<Blob> => {
+          return new Promise((resolve, reject) => {
+               const img = document.createElement('img');
+               img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return reject(new Error('Canvas context failed'));
+                    
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob((blob) => {
+                         if (blob) resolve(blob);
+                         else reject(new Error('Conversion failed'));
+                    }, 'image/webp', 0.85); // 85% Quality WebP
+               };
+               img.onerror = reject;
+               img.src = URL.createObjectURL(file);
+          });
+     };
 
      // Populate form on edit
      useEffect(() => {
@@ -108,8 +161,58 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                               </div>
                          </div>
                          <div className="grid gap-2">
-                              <Label htmlFor="photo">URL Foto</Label>
-                              <Input id="photo" value={photoUrl} onChange={e => setPhotoUrl(e.target.value)} placeholder="https://..." />
+                              <Label htmlFor="photo">Foto Kandidat</Label>
+                              <div className="flex flex-col gap-4">
+                                   {/* Preview Area */}
+                                   {photoUrl ? (
+                                        <div className="relative w-full h-48 bg-muted rounded-md overflow-hidden border">
+                                             <Image 
+                                                  src={photoUrl} 
+                                                  alt="Preview" 
+                                                  fill 
+                                                  className="object-contain" 
+                                             />
+                                             <Button
+                                                  type="button"
+                                                  variant="destructive"
+                                                  size="icon"
+                                                  className="absolute top-2 right-2 h-8 w-8"
+                                                  onClick={() => setPhotoUrl("")}
+                                             >
+                                                  <X className="h-4 w-4" />
+                                             </Button>
+                                        </div>
+                                   ) : (
+                                        <div 
+                                             onClick={() => fileInputRef.current?.click()}
+                                             className="w-full h-32 border-2 border-dashed rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors bg-muted/50"
+                                        >
+                                             {uploading ? (
+                                                  <>
+                                                       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+                                                       <span className="text-sm text-muted-foreground">Mengkonversi ke WebP & Upload...</span>
+                                                  </>
+                                             ) : (
+                                                  <>
+                                                       <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                                                       <span className="text-sm text-muted-foreground">Klik untuk upload foto</span>
+                                                       <span className="text-xs text-muted-foreground mt-1">(JPG, PNG akan otomatis diubah ke WebP)</span>
+                                                  </>
+                                             )}
+                                        </div>
+                                   )}
+                                   
+                                   <input 
+                                        ref={fileInputRef}
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={handleImageUpload}
+                                   />
+                                   
+                                   {/* Hidden Input for manual override if needed */}
+                                   <Input id="photo" value={photoUrl} onChange={e => setPhotoUrl(e.target.value)} type="hidden" />
+                              </div>
                          </div>
                          <div className="grid gap-2">
                               <Label htmlFor="vision">Visi</Label>
