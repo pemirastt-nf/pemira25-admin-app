@@ -31,7 +31,7 @@ import {
      AlertDialogFooter,
      AlertDialogHeader,
      AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Import Dialog Alert Component
+} from "@/components/ui/alert-dialog";
 
 
 export default function CommitteePage() {
@@ -41,11 +41,10 @@ export default function CommitteePage() {
      const [searchResults, setSearchResults] = useState<any[]>([]);
      const [showDeleted, setShowDeleted] = useState(false);
 
-     // Password Dialog State
      const [isPasswordOpen, setIsPasswordOpen] = useState(false);
      const [selectedUser, setSelectedUser] = useState<any>(null);
      const [password, setPassword] = useState("");
-     const [selectedRole, setSelectedRole] = useState("operator_tps"); // Default role
+     const [selectedRole, setSelectedRole] = useState("operator_tps");
 
      // Edit Dialog State
      const [isEditOpen, setIsEditOpen] = useState(false);
@@ -56,7 +55,6 @@ export default function CommitteePage() {
           password: ""
      });
 
-     // Invite State
      const [isInviteOpen, setIsInviteOpen] = useState(false);
      const [inviteEmail, setInviteEmail] = useState("");
      const [inviteQuery, setInviteQuery] = useState("");
@@ -174,7 +172,7 @@ export default function CommitteePage() {
      const handleRestore = async (id: string) => {
           toast.promise(
                async () => {
-                    await api.post(`/students/${id}/restore`); // Reusing student endpoint as it targets the same 'users' table
+                    await api.post(`/students/${id}/restore`); 
                     refetch();
                },
                {
@@ -201,11 +199,9 @@ export default function CommitteePage() {
      };
 
      const handleSoftDelete = async (id: string) => {
-          // Reusing demote logic or actual delete logic. Assuming demote for now based on previous code usually just removing role, 
-          // but if "delete" means soft delete the user entirely:
           toast.promise(
                async () => {
-                    await api.delete(`/students/${id}`); // Assuming /students/:id delete endpoint works for soft delete
+                    await api.delete(`/students/${id}`); 
                     refetch();
                },
                {
@@ -256,7 +252,6 @@ export default function CommitteePage() {
           
           if (query.length < 2) {
                setInviteSearchResults([]);
-               // If query is valid email, set it as active email immediately
                if (query.includes('@')) {
                     setInviteEmail(query);
                }
