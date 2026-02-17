@@ -33,7 +33,6 @@ export { api };
 
 export const useApi = () => api;
 
-// Socket.io Helper
 import { io, Socket } from 'socket.io-client';
 
 export const SOCKET_URL = (() => {

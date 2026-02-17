@@ -1,4 +1,3 @@
-// Admin storage utility with different prefix to avoid conflicts
 const ADMIN_STORAGE_PREFIX = 'pemira_admin_';
 
 export const adminStorage = {

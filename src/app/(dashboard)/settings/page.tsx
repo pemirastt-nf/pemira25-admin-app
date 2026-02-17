@@ -17,7 +17,9 @@ export default function SettingsPage() {
           startDate: "",
           endDate: "",
           announcementMessage: "",
-          showAnnouncement: false
+          showAnnouncement: false,
+          allowOtpEmail: true,
+          allowBroadcastEmail: true
      });
 
      const fetchSettings = useCallback(async () => {
@@ -143,6 +145,41 @@ export default function SettingsPage() {
                                         placeholder="Contoh: Pemilihan sedang berlangsung hingga pukul 16.00 WIB"
                                         value={settings.announcementMessage || ""}
                                         onChange={(e) => setSettings({ ...settings, announcementMessage: e.target.value })}
+                                   />
+                              </div>
+                         </CardContent>
+                    </Card>
+
+                    {/* Email Configuration Card */}
+                    <Card>
+                         <CardHeader>
+                              <CardTitle>Konfigurasi Email</CardTitle>
+                              <CardDescription>Kontrol pengiriman email OTP dan Broadcast.</CardDescription>
+                         </CardHeader>
+                         <CardContent className="space-y-6">
+                              <div className="flex items-center justify-between rounded-lg border p-4">
+                                   <div className="space-y-0.5">
+                                        <Label className="text-base">Izinkan Email OTP</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                             Jika dimatikan, mahasiswa tidak bisa request OTP via email.
+                                        </p>
+                                   </div>
+                                   <Switch
+                                        checked={settings.allowOtpEmail}
+                                        onCheckedChange={(checked) => setSettings({ ...settings, allowOtpEmail: checked })}
+                                   />
+                              </div>
+
+                              <div className="flex items-center justify-between rounded-lg border p-4">
+                                   <div className="space-y-0.5">
+                                        <Label className="text-base">Izinkan Email Broadcast</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                             Jika dimatikan, admin tidak bisa mengirim broadcast email baru.
+                                        </p>
+                                   </div>
+                                   <Switch
+                                        checked={settings.allowBroadcastEmail}
+                                        onCheckedChange={(checked) => setSettings({ ...settings, allowBroadcastEmail: checked })}
                                    />
                               </div>
                          </CardContent>

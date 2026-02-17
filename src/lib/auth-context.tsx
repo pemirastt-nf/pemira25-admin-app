@@ -58,7 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      const login = (token: string, userData: User) => {
           adminStorage.setItem('admin_token', token);
           setUser(userData);
-          // Force hard navigation to ensure clean state and middleware/layout mounting
           window.location.href = '/';
      };
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
@@ -237,25 +238,32 @@ Panitia PEMIRA STTNF`
                     filters: { target: targetType, batches: selectedBatches }
                };
 
-               // If new, create draft first to get real ID
                if (isNew) {
                     const res = await api.post("/broadcast/draft", payload);
                     targetId = res.data.id;
                } else {
-                    // Update existing
                     await api.put(`/broadcast/${id}`, payload);
                }
 
                const res = await api.post(`/broadcast/${targetId}/publish`);
                toast.success("Broadcast berhasil dipublish!", {
-                    description: `Mengirim ke ${res.data.recipientCount} penerima.`
+                    description: `Mengirim ke ${(res.data as any).recipientCount} penerima.`
                });
                router.push("/broadcast");
-          } catch (error: unknown) {
-               console.error(error);
-               const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Terjadi kesalahan";
+          } catch (error: any) {
+               console.error(error); 
+               
+               let msg = "Terjadi kesalahan saat mempublish broadcast.";
+               
+               if (error.response?.data?.message) {
+                   msg = error.response.data.message;
+               } else if (error.message) {
+                   msg = error.message;
+               }
+
                toast.error("Gagal publish broadcast", {
-                    description: msg
+                    description: msg,
+                    duration: 5000 
                });
           } finally {
                setIsSaving(false);
