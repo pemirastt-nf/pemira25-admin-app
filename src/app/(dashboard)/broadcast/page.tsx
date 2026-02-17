@@ -38,7 +38,6 @@ export default function BroadcastListPage() {
      const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
      const [isLoading, setIsLoading] = useState(true);
 
-     // Delete State
      const [deleteId, setDeleteId] = useState<string | null>(null);
 
      const fetchBroadcasts = async () => {
