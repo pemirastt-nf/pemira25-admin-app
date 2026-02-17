@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { api, initSocket } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw, Smile, Trash2 } from 'lucide-react';
+import { MessageCircle, Search, User, Clock, Send, Archive, RefreshCw, Smile, Trash2, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,6 +23,7 @@ interface ChatSession {
      guestEmail: string | null;
      status: 'open' | 'closed' | 'archived';
      lastMessageAt: string;
+     lastMessage?: string;
      student?: {
           name: string;
           email: string;
@@ -109,7 +110,11 @@ export default function ChatDashboard() {
           newSocket.on('session_update', (data: { sessionId: string, lastMessage: string }) => {
                setSessions(prev => prev.map(s => {
                     if (s.id === data.sessionId) {
-                         return { ...s, lastMessageAt: new Date().toISOString() };
+                         return { 
+                              ...s, 
+                              lastMessageAt: new Date().toISOString(),
+                              lastMessage: data.lastMessage 
+                         };
                     }
                     return s;
                }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()));
@@ -288,9 +293,12 @@ export default function ChatDashboard() {
                          </div>
                     </div>
                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+                    <div className="md:grid md:grid-cols-3 gap-6 h-[calc(100vh-200px)] flex flex-col">
                     {/* Sidebar List */}
-                    <div className="md:col-span-1 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden">
+                    <div className={cn(
+                         "md:col-span-1 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden h-full",
+                         selectedSessionId ? "hidden md:flex" : "flex"
+                    )}>
                          <div className="p-4 border-b space-y-3">
                               <h3 className="font-semibold flex justify-between items-center text-sm">
                                    Pesan Masuk
@@ -339,7 +347,7 @@ export default function ChatDashboard() {
                                                   key={session.id}
                                                   onClick={() => handleSelectSession(session.id)}
                                                   className={cn(
-                                                       "flex items-start gap-3 p-4 text-left border-b hover:bg-muted/50 transition-colors",
+                                                       "flex items-start gap-3 p-4 text-left border-b hover:bg-muted/50 transition-colors w-full",
                                                        selectedSessionId === session.id && "bg-muted border-l-4 border-l-primary"
                                                   )}
                                              >
@@ -348,27 +356,30 @@ export default function ChatDashboard() {
                                                   </div>
                                                   <div className="flex-1 min-w-0">
                                                        <div className="flex justify-between items-start mb-1">
-                                                            <div className="flex items-center gap-2">
-                                                                 <span className="font-semibold text-sm truncate text-foreground">
+                                                            <div className="flex items-center gap-2 max-w-[70%]">
+                                                                 <span className="font-semibold text-sm truncate text-foreground block">
                                                                       {session.student?.name || session.guestName || "Guest"}
                                                                  </span>
                                                                  {session.status === 'archived' && (
-                                                                      <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
+                                                                      <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full shrink-0">
                                                                            ARSIP
                                                                       </span>
                                                                  )}
                                                                  {session.status === 'closed' && (
-                                                                      <span className="text-[9px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full">
+                                                                      <span className="text-[9px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full shrink-0">
                                                                            TUTUP
                                                                       </span>
                                                                  )}
                                                             </div>
-                                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2 shrink-0">
                                                                  {formatDistanceToNow(new Date(session.lastMessageAt), { addSuffix: true, locale: id })}
                                                             </span>
                                                        </div>
-                                                       <p className="text-xs text-muted-foreground truncate">
-                                                            {session.student?.nim || session.guestEmail || "No Info"}
+                                                       <p className={cn(
+                                                            "text-xs truncate",
+                                                            session.unreadCount ? "font-medium text-foreground" : "text-muted-foreground"
+                                                       )}>
+                                                            {session.lastMessage || session.student?.nim || session.guestEmail || "Mulai percakapan..."}
                                                        </p>
                                                   </div>
                                              </button>
@@ -379,42 +390,48 @@ export default function ChatDashboard() {
                     </div>
 
                     {/* Chat Area */}
-                    <div className="md:col-span-2 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden">
+                    <div className={cn(
+                         "md:col-span-2 border rounded-xl bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden h-full",
+                         !selectedSessionId ? "hidden md:flex" : "flex container-chat"
+                    )}>
                          {selectedSession ? (
                               <>
                                    {/* Header */}
-                                   <div className="h-16 px-6 border-b flex items-center justify-between bg-card text-card-foreground">
-                                        <div className="flex items-center gap-3">
-                                             <div className="bg-primary/10 p-2 rounded-full text-primary">
+                                   <div className="h-16 px-4 md:px-6 border-b flex items-center justify-between bg-card text-card-foreground shrink-0">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                             <Button 
+                                                  variant="ghost" 
+                                                  size="icon" 
+                                                  className="md:hidden shrink-0 -ml-2"
+                                                  onClick={() => setSelectedSessionId(null)}
+                                             >
+                                                  <ArrowLeft size={20} />
+                                             </Button>
+                                             <div className="bg-primary/10 p-2 rounded-full text-primary shrink-0 hidden sm:flex">
                                                   <User size={20} />
                                              </div>
-                                             <div>
+                                             <div className="min-w-0">
                                                   <div className="flex items-center gap-2">
-                                                       <h3 className="font-bold text-sm">
+                                                       <h3 className="font-bold text-sm truncate">
                                                             {selectedSession.student?.name || selectedSession.guestName || "Guest"}
                                                        </h3>
                                                        {selectedSession.status === 'archived' && (
-                                                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                                                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full hidden sm:inline-block">
                                                                  ARSIP
                                                             </span>
                                                        )}
-                                                       {selectedSession.status === 'closed' && (
-                                                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
-                                                                 TUTUP
-                                                            </span>
-                                                       )}
                                                   </div>
-                                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                  <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
                                                        <span className="flex items-center gap-1">
                                                             <Clock size={12} />
-                                                            Mulai: {new Date(selectedSession.lastMessageAt).toLocaleDateString("id-ID")}
+                                                            <span className="hidden sm:inline">Mulai:</span> {new Date(selectedSession.lastMessageAt).toLocaleDateString("id-ID")}
                                                        </span>
-                                                       <span>•</span>
-                                                       <span>{selectedSession.student?.nim || selectedSession.guestEmail}</span>
+                                                       <span className="hidden sm:inline">•</span>
+                                                       <span className="hidden sm:inline truncate">{selectedSession.student?.nim || selectedSession.guestEmail}</span>
                                                   </div>
                                              </div>
                                         </div>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-1 shrink-0">
                                              {activeTab === 'open' ? (
                                                   <Button
                                                        variant="ghost"

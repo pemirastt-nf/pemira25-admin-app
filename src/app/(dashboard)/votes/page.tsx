@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fixUtcToWib } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +33,8 @@ export default function VotesPage() {
      const { user } = useAuth();
      const [candidateId, setCandidateId] = useState("");
      const [voteCount, setVoteCount] = useState("1");
+     const [location, setLocation] = useState("Lobby");
+     const [votingDay, setVotingDay] = useState("Hari 1");
      const [submitting, setSubmitting] = useState(false);
      const [voteToDelete, setVoteToDelete] = useState<{ id: string, timestamp: string } | null>(null);
 
@@ -70,7 +73,12 @@ export default function VotesPage() {
           setInflationError(null);
 
           try {
-               await api.post('/votes/offline', { candidateId, count: parseInt(voteCount) });
+               await api.post('/votes/offline', { 
+                    candidateId, 
+                    count: parseInt(voteCount),
+                    location,
+                    votingDay
+               });
                toast.success(`Berhasil menambahkan ${voteCount} suara`);
                setCandidateId("");
                setVoteCount("1");
@@ -99,10 +107,11 @@ export default function VotesPage() {
 
           const voteTime = fixUtcToWib(timestamp).getTime();
           const now = new Date().getTime();
-          const diffInMinutes = (now - voteTime) / 1000 / 60;
+          const diffInMinutes = (now - voteTime) / 1000 / 60; // Convert items to minutes
 
-          if (diffInMinutes > 1) {
-               toast.error("Tidak dapat menghapus. Batas waktu 1 menit telah lewat.");
+          // 1 Hour timeout (60 minutes)
+          if (diffInMinutes > 60) {
+               toast.error("Tidak dapat menghapus. Batas waktu 1 jam telah lewat.");
                return;
           }
 
@@ -169,6 +178,27 @@ export default function VotesPage() {
                                         </div>
                                    </div>
 
+                                   <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                             <Label htmlFor="votingDay">Sesi / Hari</Label>
+                                             <Input
+                                                  id="votingDay"
+                                                  value={votingDay}
+                                                  onChange={(e) => setVotingDay(e.target.value)}
+                                                  placeholder="Cth: Hari 1"
+                                             />
+                                        </div>
+                                        <div className="grid gap-2">
+                                             <Label htmlFor="location">Lokasi TPS</Label>
+                                             <Input
+                                                  id="location"
+                                                  value={location}
+                                                  onChange={(e) => setLocation(e.target.value)}
+                                                  placeholder="Cth: Lobby B"
+                                             />
+                                        </div>
+                                   </div>
+
                                    <div className="grid gap-2">
                                         <Label htmlFor="voteCount">Jumlah Suara</Label>
                                         <Input
@@ -231,57 +261,129 @@ export default function VotesPage() {
                          </CardContent>
                     </Card>
 
-                    {/* Recent Activity Log */}
+                    {/* Quick Stats & Guide */}
                     <Card>
                          <CardHeader>
-                              <CardTitle>Riwayat Input (Live)</CardTitle>
+                              <CardTitle>Panduan & Statistik</CardTitle>
                               <CardDescription>
-                                   Daftar suara masuk terbaru (Online & Offline).
+                                   Informasi mengenai proses input suara manual.
                               </CardDescription>
                          </CardHeader>
-                         <CardContent>
-                              <div className="space-y-4">
-                                   {activityLogs?.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm">
-                                             <p>Belum ada data suara masuk.</p>
-                                        </div>
-                                   ) : (
-                                        <div className="space-y-2">
-                                             {activityLogs?.map((log: any) => (
-                                                  <div key={log.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
-                                                       <div>
-                                                            <div className="font-medium text-sm flex items-center">
-                                                                 Suara Masuk
-                                                                 {/* Source Badge */}
-                                                                 <Badge variant={log.source === 'online' ? "default" : "secondary"} className="ml-2 text-[10px] h-5 px-1.5">
-                                                                      {log.source === 'online' ? "Online" : "Offline"}
-                                                                 </Badge>
-                                                                 {/* Only show candidate name to admin? Logic says yes. */}
-                                                                 <span className="text-muted-foreground font-normal ml-1"> -&gt; {log.candidateName || "Secret"}</span>
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground">
+                         <CardContent className="space-y-4 text-sm text-muted-foreground">
+                              <div className="p-4 bg-muted/50 rounded-lg border">
+                                   <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                        Metode Input
+                                   </h4>
+                                   <ul className="list-disc list-inside space-y-1 ml-1">
+                                        <li>Pilih <strong>kandidat</strong> yang sesuai dengan surat suara.</li>
+                                        <li>Masukkan <strong>lokasi TPS</strong> atau keterangan sesi.</li>
+                                        <li>Isi <strong>jumlah suara</strong> untuk input sekaligus (bulk).</li>
+                                   </ul>
+                              </div>
 
-                                                                 {formatDistanceToNow(fixUtcToWib(log.timestamp), { addSuffix: true, locale: idLocale })}
-                                                            </p>
+                              <div className="p-4 bg-muted/50 rounded-lg border">
+                                   <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-orange-500" />
+                                        Validasi Sistem
+                                   </h4>
+                                   <p className="mb-2">Sistem akan menolak input jika:</p>
+                                   <ul className="list-disc list-inside space-y-1 ml-1">
+                                        <li>Jumlah suara melebihi sisa kuota (Check-in - Suara Masuk).</li>
+                                        <li>Terdeteksi anomali waktu input yang terlalu cepat.</li>
+                                   </ul>
+                              </div>
+                         </CardContent>
+                    </Card>
+
+               {/* Activity Table */}
+               <Card className="col-span-2">
+                    <CardHeader>
+                         <CardTitle>Riwayat Aktivitas Suara</CardTitle>
+                         <CardDescription>
+                              Daftar lengkap suara masuk secara real-time (Online & Offline).
+                         </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <Table>
+                              <TableHeader>
+                                   <TableRow>
+                                        <TableHead className="w-45">Waktu</TableHead>
+                                        <TableHead>Sumber</TableHead>
+                                        <TableHead>Kandidat</TableHead>
+                                        <TableHead>Detail Lokasi</TableHead>
+                                        {user?.role === 'super_admin' && (
+                                             <TableHead className="text-right">Aksi</TableHead>
+                                        )}
+                                   </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                   {activityLogs?.length === 0 ? (
+                                        <TableRow>
+                                             <TableCell colSpan={5} className="h-24 text-center">
+                                                  Belum ada data suara masuk.
+                                             </TableCell>
+                                        </TableRow>
+                                   ) : (
+                                        activityLogs?.map((log: any) => (
+                                             <TableRow key={log.id}>
+                                                  <TableCell className="font-medium text-muted-foreground">
+                                                       <div className="flex flex-col">
+                                                            <span>{fixUtcToWib(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+                                                            <span className="text-xs text-muted-foreground/60">
+                                                                 {fixUtcToWib(log.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ({formatDistanceToNow(fixUtcToWib(log.timestamp), { addSuffix: true, locale: idLocale })})
+                                                            </span>
                                                        </div>
-                                                       {user?.role === 'super_admin' && (
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <Badge variant={log.source === 'online' ? "default" : "secondary"}>
+                                                            {log.source === 'online' ? "Online" : "Offline"}
+                                                       </Badge>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <span className="font-medium">{log.candidateName || "Secret"}</span>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <div className="flex items-center gap-2">
+                                                            {log.source === 'online' ? (
+                                                                 <span className="text-muted-foreground text-xs italic">-</span>
+                                                            ) : (
+                                                                 <>
+                                                                      {log.votingDay && (
+                                                                           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                                                                                {log.votingDay}
+                                                                           </Badge>
+                                                                      )}
+                                                                      {log.location && (
+                                                                           <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">
+                                                                                {log.location}
+                                                                           </Badge>
+                                                                      )}
+                                                                      {!log.votingDay && !log.location && <span className="text-muted-foreground text-xs">-</span>}
+                                                                 </>
+                                                            )}
+                                                       </div>
+                                                  </TableCell>
+                                                  {user?.role === 'super_admin' && (
+                                                       <TableCell className="text-right">
                                                             <Button
                                                                  variant="ghost"
                                                                  size="icon"
                                                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                                                  onClick={() => handleDeleteClick(log.id, log.timestamp)}
-                                                                 title="Hapus (Hanya kurang dari 1 menit)"
+                                                                 title="Hapus (Hanya kurang dari 1 jam)"
                                                             >
                                                                  <Trash2 className="h-4 w-4" />
                                                             </Button>
-                                                       )}
-                                                  </div>
-                                             ))}
-                                        </div>
+                                                       </TableCell>
+                                                  )}
+                                             </TableRow>
+                                        ))
                                    )}
-                              </div>
-                         </CardContent>
-                    </Card>
+                              </TableBody>
+                         </Table>
+                    </CardContent>
+               </Card>
                </div>
 
 

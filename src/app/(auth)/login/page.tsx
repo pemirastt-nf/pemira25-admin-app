@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
      const { login, user, loading: authLoading } = useAuth();
@@ -18,6 +18,8 @@ export default function LoginPage() {
      const [loading, setLoading] = useState(false);
      const [email, setEmail] = useState("");
      const [password, setPassword] = useState("");
+     const [showPassword, setShowPassword] = useState(false);
+     const [isPasswordFocused, setIsPasswordFocused] = useState(false);
      const [error, setError] = useState("");
      const router = useRouter();
 
@@ -64,10 +66,10 @@ export default function LoginPage() {
                          </div>
                          <div className="space-y-1">
                               <h1 className="text-2xl font-bold tracking-tight text-primary">
-                                   Admin Portal
+                                   PEMIRA IM STTNF
                               </h1>
                               <p className="text-sm text-muted-foreground">
-                                   PEMIRA STTNF
+                                   Admin Portal Login
                               </p>
                          </div>
                     </div>
@@ -76,7 +78,7 @@ export default function LoginPage() {
                          <CardHeader className="space-y-1">
                               <CardTitle className="text-xl">Sign In</CardTitle>
                               <CardDescription>
-                                   Enter your credentials to manage the election.
+                                   Masukkan kredensial Anda untuk mengakses dashboard.
                               </CardDescription>
                          </CardHeader>
                          <form onSubmit={handleLogin}>
@@ -95,15 +97,28 @@ export default function LoginPage() {
                                    </div>
                                    <div className="grid gap-2">
                                         <Label htmlFor="password">Password</Label>
-                                        <Input
-                                             id="password"
-                                             type="password"
-                                             placeholder="••••••••"
-                                             value={password}
-                                             onChange={(e) => setPassword(e.target.value)}
-                                             required
-                                             className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20"
-                                        />
+                                        <div className="relative">
+                                             <Input
+                                                  id="password"
+                                                  type={showPassword ? "text" : "password"}
+                                                  placeholder="••••••••"
+                                                  value={password}
+                                                  onChange={(e) => setPassword(e.target.value)}
+                                                  onFocus={() => setIsPasswordFocused(true)}
+                                                  onBlur={() => setIsPasswordFocused(false)}
+                                                  required
+                                                  className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20 pr-10"
+                                             />
+                                             <button
+                                                  type="button"
+                                                  className={`absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ${isPasswordFocused && password.length > 0 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                                                  onClick={() => setShowPassword(!showPassword)}
+                                                  onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                                                  tabIndex={-1}
+                                             >
+                                                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                             </button>
+                                        </div>
                                    </div>
                                    {error && (
                                         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20 flex items-center gap-2">
@@ -125,7 +140,7 @@ export default function LoginPage() {
                     </Card>
 
                     <div className="text-center text-xs text-muted-foreground">
-                         <p>&copy; {new Date().getFullYear()} PEMIRA STT Terpadu Nurul Fikri</p>
+                         <p>&copy; {new Date().getFullYear()} PEMIRA IM STT Terpadu Nurul Fikri</p>
                     </div>
                </div>
           </div>

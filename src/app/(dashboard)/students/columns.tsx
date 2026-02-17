@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
@@ -36,6 +37,16 @@ interface ColumnActionsProps {
   getCooldownRemaining: (nim: string) => number
   isSuperAdmin: boolean
 }
+
+const getMajorFromNim = (nim: string) => {
+  if (!nim || nim.length < 5) return "-";
+  
+  if (nim.startsWith("01101")) return "Sistem Informasi";
+  if (nim.startsWith("01102")) return "Teknik Informatika";
+  if (nim.startsWith("01103")) return "Bisnis Digital";
+  
+  return "Lainnya";
+};
 
 export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[] => [
   {
@@ -83,6 +94,32 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
     cell: ({ row }: { row: any }) => <div className="capitalize">{row.getValue("name")}</div>,
   },
   {
+    accessorKey: "major",
+    header: ({ column }: { column: any }) => (
+       <div className="text-center">Jurusan</div>
+    ),
+    cell: ({ row }: { row: any }) => {
+      const nim = row.original.nim;
+      const major = getMajorFromNim(nim);
+      
+      let badgeColor = "bg-gray-100 text-gray-800 border-gray-200";
+      // SI -> Orange
+      if (major === "Sistem Informasi") badgeColor = "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200";
+      // TI -> Blue 
+      if (major === "Teknik Informatika") badgeColor = "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200";
+      // BD -> Red
+      if (major === "Bisnis Digital") badgeColor = "bg-red-100 text-red-800 border-red-200 hover:bg-red-200";
+
+      return (
+        <div className="flex justify-center">
+          <Badge variant="outline" className={`${badgeColor} w-35 justify-center text-center py-1 whitespace-nowrap`}>
+            {major}
+          </Badge>
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "batch",
     header: "Angkatan",
     cell: ({ row }: { row: any }) => <div>{row.getValue("batch") || "-"}</div>,
@@ -94,39 +131,47 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
   },
   {
     accessorKey: "accessType",
-    header: "Akses",
+    header: ({ column }: { column: any }) => (
+       <div className="text-center">Akses</div>
+    ),
     cell: ({ row }: { row: any }) => {
       const accessType = row.getValue("accessType") as string
       return (
-        <Badge 
-          variant={accessType === 'offline' ? 'secondary' : 'default'}
-          className={`${
-            accessType === 'offline' 
-              ? "bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200" 
-              : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-          }`}
-        >
-          {accessType === 'offline' ? "Offline (TPS)" : "Online (Web)"}
-        </Badge>
+        <div className="flex justify-center">
+          <Badge 
+            variant="outline"
+            className={`${
+              accessType === 'offline' 
+                ? "bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200" 
+                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+            } w-30 justify-center py-1 whitespace-nowrap`}
+          >
+            {accessType === 'offline' ? "Offline (TPS)" : "Online (Web)"}
+          </Badge>
+        </div>
       )
     },
   },
   {
     accessorKey: "hasVoted",
-    header: "Status Voting",
+    header: ({ column }: { column: any }) => (
+       <div className="text-center">Status Voting</div>
+    ),
     cell: ({ row }: { row: any }) => {
       const hasVoted = row.getValue("hasVoted") as boolean
       return (
-        <Badge 
-          variant={hasVoted ? 'default' : 'outline'}
-          className={`${
-            hasVoted
-              ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200 text-wra" 
-              : "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200"
-          }`}
-        >
-          {hasVoted ? "Sudah Memilih" : "Belum Memilih"}
-        </Badge>
+        <div className="flex justify-center">
+          <Badge 
+            variant="outline"
+            className={`${
+              hasVoted
+                ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200" 
+                : "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200"
+            } w-32.5 justify-center py-1 whitespace-nowrap`}
+          >
+            {hasVoted ? "Sudah Memilih" : "Belum Memilih"}
+          </Badge>
+        </div>
       )
     },
   },
