@@ -37,8 +37,12 @@ RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Ensure the cache directory exists and is writable
+RUN mkdir -p .next/cache/images
+RUN chown -R nextjs:nodejs .next/cache
 
 USER nextjs
 
