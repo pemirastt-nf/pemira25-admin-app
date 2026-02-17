@@ -1,17 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/api";
 import { ResultsChart } from "@/components/charts/results-chart";
+import { DailyVotesSection } from "@/components/dashboard/daily-votes-section";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { Users, Vote, UserCheck, Activity, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect } from "react";
+import { socket } from "@/lib/socket";
 
 export default function DashboardPage() {
      const api = useApi();
+     const queryClient = useQueryClient();
+
+     useEffect(() => {
+          socket.connect();
+
+          const onVoteUpdate = () => {
+               queryClient.invalidateQueries({ queryKey: ['vote-stats'] });
+               queryClient.invalidateQueries({ queryKey: ['vote-results'] });
+               queryClient.invalidateQueries({ queryKey: ['vote-activity'] });
+               queryClient.invalidateQueries({ queryKey: ['vote-daily'] });
+          };
+
+          socket.on('vote-update', onVoteUpdate);
+
+          return () => {
+               socket.off('vote-update', onVoteUpdate);
+               socket.disconnect();
+          };
+     }, [queryClient]);
 
      const { data: statsData } = useQuery({
           queryKey: ['vote-stats'],
@@ -19,7 +41,6 @@ export default function DashboardPage() {
                const res = await api.get('/votes/stats');
                return res.data;
           },
-          refetchInterval: 5000
      });
 
      const { data: resultsData } = useQuery({
@@ -28,7 +49,6 @@ export default function DashboardPage() {
                const res = await api.get('/votes/results');
                return res.data;
           },
-          refetchInterval: 5000
      });
 
      const { data: activityData } = useQuery({
@@ -37,7 +57,14 @@ export default function DashboardPage() {
                const res = await api.get('/votes/activity');
                return res.data || [];
           },
-          refetchInterval: 5000
+     });
+
+     const { data: dailyData } = useQuery({
+          queryKey: ['vote-daily'],
+          queryFn: async () => {
+               const res = await api.get('/votes/daily');
+               return res.data || [];
+          },
      });
 
      const stats = {
@@ -177,6 +204,8 @@ export default function DashboardPage() {
                               </div>
                          </CardContent>
                     </Card>
+                    
+                    <DailyVotesSection data={dailyData || []} />
                </div>
           </div>
      );

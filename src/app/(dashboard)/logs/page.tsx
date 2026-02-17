@@ -87,6 +87,8 @@ export default function LogsPage() {
                'PROMOTE_COMMITTEE': 'Promosi Panitia',
                'DEMOTE_COMMITTEE': 'Demosi Panitia',
                'UPDATE_ROLE': 'Update Peran',
+               'CREATE_INVITE': 'Buat Undangan',
+               'ACCEPT_INVITE': 'Terima Undangan',
           };
           return map[action] || action;
      };
@@ -99,15 +101,15 @@ export default function LogsPage() {
      };
 
      return (
-          <div className="space-y-6">
-               <div className="flex items-center justify-between">
+          <div className="flex flex-col h-[calc(100vh-140px)] space-y-4">
+               <div className="flex items-center justify-between shrink-0">
                     <div>
                          <h1 className="text-3xl font-bold tracking-tight">Log Aktivitas</h1>
                          <p className="text-muted-foreground">Pantau tindakan administratif dan kejadian keamanan.</p>
                     </div>
                </div>
 
-               <div className="flex items-center gap-4">
+               <div className="flex items-center gap-4 shrink-0">
                     <div className="relative flex-1 max-w-sm">
                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                          <Input
@@ -140,70 +142,74 @@ export default function LogsPage() {
                               <DropdownMenuItem onClick={() => { setActionFilter("UPDATE_CANDIDATE"); setPage(1); }}>Update Kandidat</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setActionFilter("DELETE_CANDIDATE"); setPage(1); }}>Hapus Kandidat</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setActionFilter("PROMOTE_COMMITTEE"); setPage(1); }}>Promosi Panitia</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setActionFilter("CREATE_INVITE"); setPage(1); }}>Buat Undangan</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setActionFilter("ACCEPT_INVITE"); setPage(1); }}>Terima Undangan</DropdownMenuItem>
                          </DropdownMenuContent>
                     </DropdownMenu>
                </div>
 
-               <div className="rounded-md border">
-                    <Table>
-                         <TableHeader>
-                              <TableRow>
-                                   <TableHead>Waktu</TableHead>
-                                   <TableHead>Aktor</TableHead>
-                                   <TableHead>Aksi</TableHead>
-                                   <TableHead>Target</TableHead>
-                                   <TableHead>Alamat IP</TableHead>
-                              </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                              {isLoading ? (
-                                   Array.from({ length: 10 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                             <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        </TableRow>
-                                   ))
-                              ) : logs.length === 0 ? (
+               <div className="rounded-md border flex-1 overflow-hidden flex flex-col">
+                    <div className="overflow-auto bg-background">
+                         <Table>
+                              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
-                                             Tidak ada log ditemukan.
-                                        </TableCell>
+                                        <TableHead className="w-45">Waktu</TableHead>
+                                        <TableHead>Aktor</TableHead>
+                                        <TableHead>Aksi</TableHead>
+                                        <TableHead>Target</TableHead>
+                                        <TableHead>Lokasi</TableHead>
                                    </TableRow>
-                              ) : (
-                                   logs.map((log: any) => (
-                                        <TableRow key={log.id}>
-                                             <TableCell className="font-mono text-xs">
-                                                  {format(new Date(log.timestamp), "dd MMM yyyy HH:mm:ss", { locale: id })}
-                                             </TableCell>
-                                             <TableCell>
-                                                  <div className="flex flex-col">
-                                                       <span className="font-medium">{log.actorName}</span>
-                                                       <span className="text-xs text-muted-foreground">ID: {log.actorId}</span>
-                                                  </div>
-                                             </TableCell>
-                                             <TableCell>
-                                                  <Badge variant={getActionColor(log.action) as any} className="whitespace-nowrap">
-                                                       {translateAction(log.action)}
-                                                  </Badge>
-                                             </TableCell>
-                                             <TableCell className="max-w-75 truncate" title={log.target}>
-                                                  {log.target || '-'}
-                                             </TableCell>
-                                             <TableCell className="font-mono text-xs text-muted-foreground">
-                                                  {log.ipAddress}
+                              </TableHeader>
+                              <TableBody>
+                                   {isLoading ? (
+                                        Array.from({ length: 10 }).map((_, i) => (
+                                             <TableRow key={i}>
+                                                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                                                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                             </TableRow>
+                                        ))
+                                   ) : logs.length === 0 ? (
+                                        <TableRow>
+                                             <TableCell colSpan={5} className="h-24 text-center">
+                                                  Tidak ada log ditemukan.
                                              </TableCell>
                                         </TableRow>
-                                   ))
-                              )}
-                         </TableBody>
-                    </Table>
+                                   ) : (
+                                        logs.map((log: any) => (
+                                             <TableRow key={log.id}>
+                                                  <TableCell className="font-mono text-xs whitespace-nowrap">
+                                                       {format(new Date(log.timestamp), "dd MMM yyyy HH:mm:ss", { locale: id })}
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <div className="flex flex-col">
+                                                            <span className="font-medium whitespace-nowrap">{log.actorName}</span>
+                                                            <span className="text-xs text-muted-foreground truncate max-w-37.5" title={log.actorId}>ID: {log.actorId}</span>
+                                                       </div>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                       <Badge variant={getActionColor(log.action) as any} className="whitespace-nowrap">
+                                                            {translateAction(log.action)}
+                                                       </Badge>
+                                                  </TableCell>
+                                                  <TableCell className="max-w-50 truncate" title={log.target}>
+                                                       {log.target || '-'}
+                                                  </TableCell>
+                                                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                                                       {log.location || log.ipAddress || '-'}
+                                                  </TableCell>
+                                             </TableRow>
+                                        ))
+                                   )}
+                              </TableBody>
+                         </Table>
+                    </div>
                </div>
 
                {/* Pagination */}
-               <div className="py-4">
+               <div className="py-2 shrink-0">
                     <Pagination>
                          <PaginationContent>
                               <PaginationItem>

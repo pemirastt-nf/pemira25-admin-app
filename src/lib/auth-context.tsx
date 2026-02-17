@@ -38,9 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
                const res = await api.get('/auth/me');
                setUser(res.data);
+               if (pathname === '/login') {
+                    router.push('/');
+               }
           } catch {
                setUser(null);
-               if (pathname !== '/login') {
+               if (pathname !== '/login' && !pathname.startsWith('/invite')) {
                     router.push('/login');
                }
           } finally {
