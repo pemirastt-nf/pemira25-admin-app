@@ -48,7 +48,6 @@ export default function VotesPage() {
 
      const [inflationError, setInflationError] = useState<{ message: string; detail?: InflationDetail } | null>(null);
 
-     // Fetch Candidates
      const { data: candidates } = useQuery({
           queryKey: ['candidates'],
           queryFn: async () => {
@@ -57,7 +56,6 @@ export default function VotesPage() {
           }
      });
 
-     // Fetch Activity Log
      const { data: activityLogs, refetch: refetchLogs } = useQuery({
           queryKey: ['vote-activity'],
           queryFn: async () => {
@@ -107,7 +105,7 @@ export default function VotesPage() {
 
           const voteTime = fixUtcToWib(timestamp).getTime();
           const now = new Date().getTime();
-          const diffInMinutes = (now - voteTime) / 1000 / 60; // Convert items to minutes
+          const diffInMinutes = (now - voteTime) / 1000 / 60; 
 
           // 1 Hour timeout (60 minutes)
           if (diffInMinutes > 60) {

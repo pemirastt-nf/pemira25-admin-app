@@ -41,13 +41,11 @@ export default function SettingsPage() {
      }, [fetchSettings]);
 
      const handleSave = async () => {
-          // Validation: Ensure both dates are set if one is set
           if ((settings.startDate && !settings.endDate) || (!settings.startDate && settings.endDate)) {
                toast.error("Waktu Mulai dan Waktu Selesai harus diisi keduanya atau dikosongkan keduanya.");
                return;
           }
 
-          // Validation: Ensure Start Date is before End Date
           if (settings.startDate && settings.endDate) {
                const start = new Date(settings.startDate);
                const end = new Date(settings.endDate);

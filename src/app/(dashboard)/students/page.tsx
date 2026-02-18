@@ -85,7 +85,6 @@ export default function StudentsPage() {
           toast.promise(api.post('/auth/manual-otp', { identifier: nim }), {
                loading: 'Mengirim OTP...',
                success: () => {
-                    // Set cooldown for 60 seconds
                     setCooldowns(prev => ({ ...prev, [nim]: Date.now() + 60000 }));
                     return 'OTP berhasil dikirim!';
                },
@@ -99,8 +98,8 @@ export default function StudentsPage() {
           toast.promise(
                async () => {
                     const res = await api.post('/votes/checkin', { nim });
-                    refetch(); // usage of res below
-                    return res; // Pass res to success
+                    refetch();
+                    return res; 
                },
                {
                     loading: 'Verifikasi kehadiran (Offline)...',
@@ -136,7 +135,6 @@ export default function StudentsPage() {
           );
      };
 
-     // Edit Student
      const handleEditStudent = async () => {
           if (!editStudent || !editStudent.nim || !editStudent.name) {
                toast.error("NIM dan Nama wajib diisi");
@@ -189,7 +187,6 @@ export default function StudentsPage() {
           setActionDialog({ isOpen: true, type: 'permanent', data: student });
      };
 
-     // Confirm Action Execution
      const confirmAction = async () => {
           const { type, data } = actionDialog;
           if (!data) return;
@@ -243,7 +240,6 @@ export default function StudentsPage() {
           return Math.max(0, Math.ceil((expiry - now) / 1000));
      };
 
-     // Column actions for data table
      const columnActions = {
           onEdit: openEditDialog,
           onDelete: handleDeleteStudent,

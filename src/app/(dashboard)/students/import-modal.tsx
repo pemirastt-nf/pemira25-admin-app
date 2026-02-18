@@ -96,7 +96,6 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                setSheets(wb.SheetNames);
 
                if (wb.SheetNames.length > 0) {
-                    // Default to first sheet
                     handleSheetSelect(wb.SheetNames[0], wb);
                }
           } catch (err) {
@@ -208,20 +207,16 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
           setPreviewData(processed);
 
-          // Auto select all valid rows
           const validIds = new Set(processed.filter(d => d.isValid).map(d => d.id));
           setSelectedRows(validIds);
 
-          // Detect Batches for Config Step
           const uniqueBatches = Array.from(new Set(processed.map(d => d.batch).filter(Boolean))).sort();
           setDetectedBatches(uniqueBatches);
 
-          // Default all to Online
           const initialConfig: Record<string, "online" | "offline"> = {};
           uniqueBatches.forEach(b => initialConfig[b] = "online");
           setBatchConfig(initialConfig);
 
-          // Go to Config Step if batches exist, else Preview
           if (uniqueBatches.length > 0) {
                setStep("config");
           } else {
