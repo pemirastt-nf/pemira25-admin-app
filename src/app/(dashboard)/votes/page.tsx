@@ -71,8 +71,8 @@ export default function VotesPage() {
           setInflationError(null);
 
           try {
-               await api.post('/votes/offline', { 
-                    candidateId, 
+               await api.post('/votes/offline', {
+                    candidateId,
                     count: parseInt(voteCount),
                     location,
                     votingDay
@@ -105,7 +105,7 @@ export default function VotesPage() {
 
           const voteTime = fixUtcToWib(timestamp).getTime();
           const now = new Date().getTime();
-          const diffInMinutes = (now - voteTime) / 1000 / 60; 
+          const diffInMinutes = (now - voteTime) / 1000 / 60;
 
           // 1 Hour timeout (60 minutes)
           if (diffInMinutes > 60) {
@@ -294,94 +294,94 @@ export default function VotesPage() {
                          </CardContent>
                     </Card>
 
-               {/* Activity Table */}
-               <Card className="col-span-2">
-                    <CardHeader>
-                         <CardTitle>Riwayat Aktivitas Suara</CardTitle>
-                         <CardDescription>
-                              Daftar lengkap suara masuk secara real-time (Online & Offline).
-                         </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <Table>
-                              <TableHeader>
-                                   <TableRow>
-                                        <TableHead className="w-45">Waktu</TableHead>
-                                        <TableHead>Sumber</TableHead>
-                                        <TableHead>Kandidat</TableHead>
-                                        <TableHead>Detail Lokasi</TableHead>
-                                        {user?.role === 'super_admin' && (
-                                             <TableHead className="text-right">Aksi</TableHead>
-                                        )}
-                                   </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                   {activityLogs?.length === 0 ? (
+                    {/* Activity Table */}
+                    <Card className="col-span-2">
+                         <CardHeader>
+                              <CardTitle>Riwayat Aktivitas Suara</CardTitle>
+                              <CardDescription>
+                                   Daftar lengkap suara masuk secara real-time (Online & Offline).
+                              </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                              <Table>
+                                   <TableHeader>
                                         <TableRow>
-                                             <TableCell colSpan={5} className="h-24 text-center">
-                                                  Belum ada data suara masuk.
-                                             </TableCell>
+                                             <TableHead className="w-45">Waktu</TableHead>
+                                             <TableHead>Sumber</TableHead>
+                                             <TableHead>Kandidat</TableHead>
+                                             <TableHead>Detail Lokasi</TableHead>
+                                             {user?.role === 'super_admin' && (
+                                                  <TableHead className="text-right">Aksi</TableHead>
+                                             )}
                                         </TableRow>
-                                   ) : (
-                                        activityLogs?.map((log: any) => (
-                                             <TableRow key={log.id}>
-                                                  <TableCell className="font-medium text-muted-foreground">
-                                                       <div className="flex flex-col">
-                                                            <span>{fixUtcToWib(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
-                                                            <span className="text-xs text-muted-foreground/60">
-                                                                 {fixUtcToWib(log.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ({formatDistanceToNow(fixUtcToWib(log.timestamp), { addSuffix: true, locale: idLocale })})
-                                                            </span>
-                                                       </div>
+                                   </TableHeader>
+                                   <TableBody>
+                                        {activityLogs?.length === 0 ? (
+                                             <TableRow>
+                                                  <TableCell colSpan={5} className="h-24 text-center">
+                                                       Belum ada data suara masuk.
                                                   </TableCell>
-                                                  <TableCell>
-                                                       <Badge variant={log.source === 'online' ? "default" : "secondary"}>
-                                                            {log.source === 'online' ? "Online" : "Offline"}
-                                                       </Badge>
-                                                  </TableCell>
-                                                  <TableCell>
-                                                       <span className="font-medium">{log.candidateName || "Secret"}</span>
-                                                  </TableCell>
-                                                  <TableCell>
-                                                       <div className="flex items-center gap-2">
-                                                            {log.source === 'online' ? (
-                                                                 <span className="text-muted-foreground text-xs italic">-</span>
-                                                            ) : (
-                                                                 <>
-                                                                      {log.votingDay && (
-                                                                           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                                                                                {log.votingDay}
-                                                                           </Badge>
-                                                                      )}
-                                                                      {log.location && (
-                                                                           <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">
-                                                                                {log.location}
-                                                                           </Badge>
-                                                                      )}
-                                                                      {!log.votingDay && !log.location && <span className="text-muted-foreground text-xs">-</span>}
-                                                                 </>
-                                                            )}
-                                                       </div>
-                                                  </TableCell>
-                                                  {user?.role === 'super_admin' && (
-                                                       <TableCell className="text-right">
-                                                            <Button
-                                                                 variant="ghost"
-                                                                 size="icon"
-                                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                 onClick={() => handleDeleteClick(log.id, log.timestamp)}
-                                                                 title="Hapus (Hanya kurang dari 1 jam)"
-                                                            >
-                                                                 <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                       </TableCell>
-                                                  )}
                                              </TableRow>
-                                        ))
-                                   )}
-                              </TableBody>
-                         </Table>
-                    </CardContent>
-               </Card>
+                                        ) : (
+                                             activityLogs?.map((log: any) => (
+                                                  <TableRow key={log.id}>
+                                                       <TableCell className="font-medium text-muted-foreground">
+                                                            <div className="flex flex-col">
+                                                                 <span>{fixUtcToWib(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+                                                                 <span className="text-xs text-muted-foreground/60">
+                                                                      {fixUtcToWib(log.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ({formatDistanceToNow(fixUtcToWib(log.timestamp), { addSuffix: true, locale: idLocale })})
+                                                                 </span>
+                                                            </div>
+                                                       </TableCell>
+                                                       <TableCell>
+                                                            <Badge variant={log.source === 'online' ? "default" : "secondary"}>
+                                                                 {log.source === 'online' ? "Online" : "Offline"}
+                                                            </Badge>
+                                                       </TableCell>
+                                                       <TableCell>
+                                                            <span className="font-medium">{log.candidateName || "Secret"}</span>
+                                                       </TableCell>
+                                                       <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                 {log.source === 'online' ? (
+                                                                      <span className="text-muted-foreground text-xs italic">-</span>
+                                                                 ) : (
+                                                                      <>
+                                                                           {log.votingDay && (
+                                                                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                                                                                     {log.votingDay}
+                                                                                </Badge>
+                                                                           )}
+                                                                           {log.location && (
+                                                                                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">
+                                                                                     {log.location}
+                                                                                </Badge>
+                                                                           )}
+                                                                           {!log.votingDay && !log.location && <span className="text-muted-foreground text-xs">-</span>}
+                                                                      </>
+                                                                 )}
+                                                            </div>
+                                                       </TableCell>
+                                                       {user?.role === 'super_admin' && (
+                                                            <TableCell className="text-right">
+                                                                 <Button
+                                                                      variant="ghost"
+                                                                      size="icon"
+                                                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                      onClick={() => handleDeleteClick(log.id, log.timestamp)}
+                                                                      title="Hapus (Hanya kurang dari 1 jam)"
+                                                                 >
+                                                                      <Trash2 className="h-4 w-4" />
+                                                                 </Button>
+                                                            </TableCell>
+                                                       )}
+                                                  </TableRow>
+                                             ))
+                                        )}
+                                   </TableBody>
+                              </Table>
+                         </CardContent>
+                    </Card>
                </div>
 
 
