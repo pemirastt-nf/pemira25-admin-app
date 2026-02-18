@@ -1,9 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
 import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
@@ -95,7 +96,6 @@ export default function BroadcastListPage() {
 
                <div className="grid gap-4">
                     {isLoading ? (
-                         // Loading Skeletons
                          [1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
                     ) : broadcasts.length === 0 ? (
                          <Card className="text-center py-12">
