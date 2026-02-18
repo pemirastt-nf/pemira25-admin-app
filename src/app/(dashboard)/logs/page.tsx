@@ -36,10 +36,8 @@ export default function LogsPage() {
      const [search, setSearch] = useState("");
      const [actionFilter, setActionFilter] = useState("ALL");
 
-     // Debounce Search
      const [debouncedSearch, setDebouncedSearch] = useState("");
 
-     // Proper debounce effect
      useEffect(() => {
           const handler = setTimeout(() => {
                setDebouncedSearch(search);
