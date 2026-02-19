@@ -36,6 +36,7 @@ interface SMTPConfig {
      port: number;
      secure: boolean;
      user: string;
+     fromEmail?: string;
      priority: number;
      dailyLimit: number;
      currentUsage: number;
@@ -55,6 +56,7 @@ export default function SMTPPage() {
           secure: false,
           user: "",
           pass: "",
+          fromEmail: "",
           priority: 1,
           dailyLimit: 100,
      });
@@ -88,7 +90,8 @@ export default function SMTPPage() {
                     port: config.port,
                     secure: config.secure,
                     user: config.user,
-                    pass: "", 
+                    pass: "",
+                    fromEmail: config.fromEmail || "",
                     priority: config.priority,
                     dailyLimit: config.dailyLimit,
                });
@@ -101,6 +104,7 @@ export default function SMTPPage() {
                     secure: false,
                     user: "",
                     pass: "",
+                    fromEmail: "",
                     priority: 1,
                     dailyLimit: 100,
                });
@@ -292,7 +296,7 @@ export default function SMTPPage() {
                               </div>
 
                               <div className="space-y-2">
-                                   <Label htmlFor="user">Username</Label>
+                                   <Label htmlFor="user">Username (SMTP Auth)</Label>
                                    <Input
                                         id="user"
                                         placeholder="your-email@gmail.com"
@@ -300,6 +304,17 @@ export default function SMTPPage() {
                                         onChange={(e) => setFormData({ ...formData, user: e.target.value })}
                                         required
                                    />
+                              </div>
+
+                              <div className="space-y-2">
+                                   <Label htmlFor="fromEmail">From Email <span className="text-muted-foreground font-normal">(opsional, override SMTP_FROM global)</span></Label>
+                                   <Input
+                                        id="fromEmail"
+                                        placeholder='"PEMIRA IM STTNF" <noreply@pemirasttnf.web.id>'
+                                        value={formData.fromEmail}
+                                        onChange={(e) => setFormData({ ...formData, fromEmail: e.target.value })}
+                                   />
+                                   <p className="text-xs text-muted-foreground">Jika diisi, email akan dikirim dari alamat ini. Gunakan untuk Gmail (harus sama dengan username) atau domain khusus per-provider.</p>
                               </div>
 
                               <div className="space-y-2">
