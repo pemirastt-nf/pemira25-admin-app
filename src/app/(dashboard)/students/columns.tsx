@@ -154,7 +154,16 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
      {
           accessorKey: "hasVoted",
           header: ({ column }: { column: any }) => (
-               <div className="text-center">Status Voting</div>
+               <div className="flex justify-center">
+                    <Button
+                         variant="ghost"
+                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                         className="h-auto p-0 hover:bg-transparent"
+                    >
+                         Status Voting
+                         <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+               </div>
           ),
           cell: ({ row }: { row: any }) => {
                const hasVoted = row.getValue("hasVoted") as boolean
