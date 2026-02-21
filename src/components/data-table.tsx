@@ -36,16 +36,23 @@ import {
 interface DataTableProps<TData, TValue> {
      columns: ColumnDef<TData, TValue>[]
      data: TData[]
+     rowSelection?: any;
+     onRowSelectionChange?: (selection: any) => void;
 }
 
 export function DataTable<TData, TValue>({
      columns,
      data,
+     rowSelection: controlledRowSelection,
+     onRowSelectionChange: controlledOnRowSelectionChange,
 }: DataTableProps<TData, TValue>) {
      const [sorting, setSorting] = React.useState<SortingState>([])
      const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
      const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-     const [rowSelection, setRowSelection] = React.useState({})
+     const [internalRowSelection, setInternalRowSelection] = React.useState({})
+     
+     const rowSelection = controlledRowSelection ?? internalRowSelection;
+     const setRowSelection = controlledOnRowSelectionChange ?? setInternalRowSelection;
 
      const table = useReactTable({
           data,

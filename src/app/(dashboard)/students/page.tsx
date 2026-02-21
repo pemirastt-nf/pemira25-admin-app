@@ -7,7 +7,7 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/data-table";
-import { FileUp, Search, RefreshCw, Plus } from "lucide-react";
+import { FileUp, Search, RefreshCw, Plus, Pencil } from "lucide-react";
 import { ImportModal } from "./import-modal";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function StudentsPage() {
@@ -32,8 +32,13 @@ export default function StudentsPage() {
      const [isImportOpen, setIsImportOpen] = useState(false);
      const [isAddOpen, setIsAddOpen] = useState(false);
      const [showDeleted, setShowDeleted] = useState(false);
+     const [rowSelection, setRowSelection] = useState({});
+     const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+     const [bulkUpdateData, setBulkUpdateData] = useState({ accessType: "", batch: "" });
+
      const api = useApi();
      const { user } = useAuth();
+
      const isSuperAdmin = user?.role === 'super_admin';
 
      // OTP Confirmation & Cooldown State
@@ -174,6 +179,39 @@ export default function StudentsPage() {
           setIsEditOpen(true);
      };
 
+
+     const students = data?.data || [];
+
+     const handleBulkUpdate = async () => {
+          const selectedIndices = Object.keys(rowSelection);
+          if (selectedIndices.length === 0) return;
+
+          const selectedStudentIds = selectedIndices.map(idx => students[Number(idx)]?.id).filter(Boolean);
+          
+          if (selectedStudentIds.length === 0) return;
+
+          const updates: any = {};
+          if (bulkUpdateData.accessType) updates.accessType = bulkUpdateData.accessType;
+          if (bulkUpdateData.batch) updates.batch = bulkUpdateData.batch;
+
+          if (Object.keys(updates).length === 0) {
+               toast.error("Tidak ada perubahan yang dipilih");
+               return;
+          }
+
+          toast.promise(api.put('/students/bulk', { ids: selectedStudentIds, updates }), {
+               loading: 'Mengupdate data mahasiswa...',
+               success: () => {
+                    setIsBulkEditOpen(false);
+                    setRowSelection({});
+                    setBulkUpdateData({ accessType: "", batch: "" });
+                    refetch();
+                    return 'Berhasil update data mahasiswa!';
+               },
+               error: (err) => `Gagal update: ${err.response?.data?.message || err.message}`
+          });
+     };
+
      // Action Handlers
      const handleDeleteStudent = (student: any) => {
           setActionDialog({ isOpen: true, type: 'delete', data: student });
@@ -232,8 +270,6 @@ export default function StudentsPage() {
           }
      };
 
-     const students: Student[] = data?.data || [];
-
      const getCooldownRemaining = (nim: string) => {
           const expiry = cooldowns[nim];
           if (!expiry) return 0;
@@ -269,6 +305,12 @@ export default function StudentsPage() {
                               <FileUp className="h-4 w-4" />
                               Import Excel
                          </Button>
+                         {Object.keys(rowSelection).length > 0 && (
+                              <Button variant="secondary" onClick={() => setIsBulkEditOpen(true)} className="gap-2">
+                                   <Pencil className="h-4 w-4" />
+                                   Edit ({Object.keys(rowSelection).length})
+                              </Button>
+                         )}
                     </div>
                </div>
 
@@ -297,10 +339,54 @@ export default function StudentsPage() {
 
                <DataTable 
                     columns={columns} 
-                    data={students.map(student => ({ ...student, deletedAt: student.deletedAt }))} 
+                    data={students.map((student: any) => ({ ...student, deletedAt: student.deletedAt }))} 
+                    rowSelection={rowSelection}
+                    onRowSelectionChange={setRowSelection}
                />
 
                <ImportModal open={isImportOpen} onOpenChange={setIsImportOpen} />
+
+               {/* Bulk Edit Dialog */}
+               <Dialog open={isBulkEditOpen} onOpenChange={setIsBulkEditOpen}>
+                    <DialogContent>
+                         <DialogHeader>
+                              <DialogTitle>Edit Masal ({Object.keys(rowSelection).length} Mahasiswa)</DialogTitle>
+                              <DialogDescription>
+                                   Ubah atribut untuk semua mahasiswa yang dipilih sekaligus. Kosongkan jika tidak ingin mengubah.
+                              </DialogDescription>
+                         </DialogHeader>
+                         <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                   <Label>Tipe Akses (Voting Method)</Label>
+                                   <Select
+                                        value={bulkUpdateData.accessType}
+                                        onValueChange={(val) => setBulkUpdateData({ ...bulkUpdateData, accessType: val })}
+                                   >
+                                        <SelectTrigger>
+                                             <SelectValue placeholder="Pilih Tipe Akses (Biarkan kosong untuk skip)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                             <SelectItem value="online">Online (Web Voting)</SelectItem>
+                                             <SelectItem value="offline">Offline (TPS Voting)</SelectItem>
+                                        </SelectContent>
+                                   </Select>
+                              </div>
+                              <div className="space-y-2">
+                                   <Label>Batch / Angkatan</Label>
+                                   <Input
+                                        placeholder="Tahun Angkatan (Biarkan kosong untuk skip)"
+                                        value={bulkUpdateData.batch}
+                                        onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, batch: e.target.value })}
+                                   />
+                              </div>
+                         </div>
+                         <DialogFooter>
+                              <Button variant="outline" onClick={() => setIsBulkEditOpen(false)}>Batal</Button>
+                              <Button onClick={handleBulkUpdate}>Simpan Perubahan</Button>
+                         </DialogFooter>
+                    </DialogContent>
+               </Dialog>
+
 
                {/* OTP Confirmation Dialog */}
                <AlertDialog open={otpConfirmOpen} onOpenChange={setOtpConfirmOpen}>

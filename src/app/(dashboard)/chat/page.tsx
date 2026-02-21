@@ -13,6 +13,7 @@ import { id } from 'date-fns/locale';
 import EmojiPicker from 'emoji-picker-react';
 import { Theme } from 'emoji-picker-react';
 import { adminStorage } from '@/lib/storage';
+import { useAuth } from '@/lib/auth-context';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
@@ -35,12 +36,25 @@ interface ChatSession {
 interface Message {
      id: string;
      message: string;
-     senderType: 'student' | 'admin' | 'system';
+     senderType: 'student' | 'panitia' | 'super_admin' | 'operator_chat' | 'admin' | 'system';
      senderId?: string;
+     senderName?: string | null;
      createdAt: string;
 }
 
+const senderLabel: Record<string, string> = {
+     super_admin: 'Super Admin',
+     panitia: 'Panitia',
+     operator_chat: 'Humas',
+     admin: 'Admin',
+     system: 'Sistem',
+};
+
 export default function ChatDashboard() {
+     const { user: authUser } = useAuth();
+     const authUserRef = useRef(authUser);
+     useEffect(() => { authUserRef.current = authUser; }, [authUser]);
+
      const [sessions, setSessions] = useState<ChatSession[]>([]);
      const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
      const [messages, setMessages] = useState<Message[]>([]);
@@ -125,11 +139,21 @@ export default function ChatDashboard() {
 
           // Listen for messages in current room (joined via admin_join_session)
           newSocket.on('new_message', (msg: Message) => {
-               setMessages(prev => [...prev, msg]);
+               const currentUser = authUserRef.current;
+               const enriched = (!msg.senderName && msg.senderId && msg.senderId === currentUser?.id)
+                    ? { ...msg, senderName: currentUser.name }
+                    : msg;
+               setMessages(prev => [...prev, enriched]);
           });
 
           newSocket.on('message_history', (history: Message[]) => {
-               setMessages(history);
+               const currentUser = authUserRef.current;
+               const enriched = history.map(msg =>
+                    !msg.senderName && msg.senderId && msg.senderId === currentUser?.id
+                         ? { ...msg, senderName: currentUser.name }
+                         : msg
+               );
+               setMessages(enriched);
                scrollToBottom();
           });
 
@@ -486,17 +510,24 @@ export default function ChatDashboard() {
                                                   </div>
                                              ) : (
                                                   messages.map(msg => {
-                                                       // Admin side includes: panitia, super_admin, admin, system
+                                                       // Admin side includes: panitia, super_admin, operator_chat, system
                                                        const isAdminSide = msg.senderType !== 'student';
 
                                                        return (
                                                             <div
                                                                  key={msg.id}
                                                                  className={cn(
-                                                                      "flex w-full",
-                                                                      isAdminSide ? "justify-end" : "justify-start"
+                                                                      "flex w-full flex-col",
+                                                                      isAdminSide ? "items-end" : "items-start"
                                                                  )}
                                                             >
+                                                                 {isAdminSide && (
+                                                                      <span className="text-[10px] text-muted-foreground mb-1 px-1">
+                                                                           {msg.senderName
+                                                                                ? msg.senderName.split(' ')[0]
+                                                                                : senderLabel[msg.senderType] ?? msg.senderType}
+                                                                      </span>
+                                                                 )}
                                                                  <div className={cn(
                                                                       "max-w-[80%] rounded-2xl p-4 text-sm shadow-sm",
                                                                       isAdminSide

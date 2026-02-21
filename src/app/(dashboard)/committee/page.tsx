@@ -644,7 +644,6 @@ export default function CommitteePage() {
                                              value={inviteQuery}
                                              onChange={(e) => {
                                                   handleInviteSearch(e.target.value);
-                                                  // Basic email assumption: if it looks like an email and no search selected, use it
                                                   if (e.target.value.includes('@')) {
                                                        setInviteEmail(e.target.value);
                                                   }
@@ -693,7 +692,7 @@ export default function CommitteePage() {
                                                   <SelectItem value="panitia">Panitia (Committee)</SelectItem>
                                                   <SelectItem value="operator_tps">Operator TPS</SelectItem>
                                                   <SelectItem value="operator_suara">Operator Suara</SelectItem>
-                                                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                                                  <SelectItem value="operator_chat">Operator Chat</SelectItem>
                                              </SelectContent>
                                         </Select>
                                    </div>

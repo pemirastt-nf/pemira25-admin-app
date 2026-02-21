@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Send, Code, Info, Play } from "lucide-react";
+import { ArrowLeft, Save, Send, Code, Info, Play, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import {
      Dialog,
      DialogContent,
@@ -57,6 +58,7 @@ export default function BroadcastEditorPage({ params }: BroadcastEditorProps) {
      const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
      const [status, setStatus] = useState<string>("draft");
      const [stats, setStats] = useState<{ total: number; sent: number; failed: number } | null>(null);
+     const pollRef = useRef<NodeJS.Timeout | null>(null);
 
      // Dialogs
      const [testSendOpen, setTestSendOpen] = useState(false);
@@ -189,6 +191,34 @@ Panitia PEMIRA STTNF`
                fetchBroadcast();
           }
      }, [id, isNew, api, router]);
+
+     useEffect(() => {
+          if (status === 'processing' && !isNew && !pollRef.current) {
+               pollRef.current = setInterval(async () => {
+                    try {
+                         const res = await api.get(`/broadcast/${id}`);
+                         setStatus(res.data.status);
+                         setStats(res.data.stats);
+                         if (res.data.status !== 'processing') {
+                              if (pollRef.current) {
+                                   clearInterval(pollRef.current);
+                                   pollRef.current = null;
+                              }
+                         }
+                    } catch { /* silent */ }
+               }, 5000);
+          }
+          if (status !== 'processing' && pollRef.current) {
+               clearInterval(pollRef.current);
+               pollRef.current = null;
+          }
+          return () => {
+               if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+               }
+          };
+     }, [status, id, isNew, api]);
 
      const handleSaveDraft = async () => {
           if (!subject) return toast.error("Subject wajib diisi");
@@ -430,6 +460,76 @@ Panitia PEMIRA STTNF`
 
                     {/* Sidebar Configuration */}
                     <div className="space-y-6">
+
+                         {status === 'processing' && stats && (
+                              <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
+                                   <CardHeader className="pb-2">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                             <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                             Sedang Diproses
+                                        </CardTitle>
+                                   </CardHeader>
+                                   <CardContent className="space-y-3">
+                                        <Progress
+                                             value={stats.total > 0 ? Math.round(((stats.sent + stats.failed) / stats.total) * 100) : 0}
+                                             className="h-2"
+                                        />
+                                        <div className="text-sm space-y-1">
+                                             <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Progress</span>
+                                                  <span className="font-medium">{stats.total > 0 ? Math.round(((stats.sent + stats.failed) / stats.total) * 100) : 0}%</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                  <span className="text-muted-foreground flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-500" /> Terkirim</span>
+                                                  <span className="font-medium text-green-600">{stats.sent}</span>
+                                             </div>
+                                             {stats.failed > 0 && (
+                                                  <div className="flex justify-between">
+                                                       <span className="text-muted-foreground">Gagal</span>
+                                                       <span className="font-medium text-destructive">{stats.failed}</span>
+                                                  </div>
+                                             )}
+                                             <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Total</span>
+                                                  <span className="font-medium">{stats.total}</span>
+                                             </div>
+                                             {stats.total - stats.sent - stats.failed > 0 && (
+                                                  <div className="flex justify-between text-xs">
+                                                       <span className="text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Estimasi</span>
+                                                       <span className="text-blue-600">
+                                                            {(stats.total - stats.sent - stats.failed) * 10 < 60
+                                                                 ? `~${(stats.total - stats.sent - stats.failed) * 10}d`
+                                                                 : `~${Math.ceil((stats.total - stats.sent - stats.failed) * 10 / 60)} menit`}
+                                                       </span>
+                                                  </div>
+                                             )}
+                                        </div>
+                                   </CardContent>
+                              </Card>
+                         )}
+
+                         {status === 'completed' && stats && (
+                              <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/20">
+                                   <CardContent className="pt-6">
+                                        <div className="text-sm space-y-1">
+                                             <div className="flex justify-between">
+                                                  <span className="text-muted-foreground flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-500" /> Terkirim</span>
+                                                  <span className="font-medium text-green-600">{stats.sent}</span>
+                                             </div>
+                                             {stats.failed > 0 && (
+                                                  <div className="flex justify-between">
+                                                       <span className="text-muted-foreground">Gagal</span>
+                                                       <span className="font-medium text-destructive">{stats.failed}</span>
+                                                  </div>
+                                             )}
+                                             <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Total</span>
+                                                  <span className="font-medium">{stats.total}</span>
+                                             </div>
+                                        </div>
+                                   </CardContent>
+                              </Card>
+                         )}
 
                          <Card>
                               <CardHeader>
