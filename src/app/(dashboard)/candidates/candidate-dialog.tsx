@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState, useRef } from "react";
 import { Loader2, Upload, X } from "lucide-react";
 import Image from "next/image";
+import { toast } from "sonner";
 
 export function CandidateDialog({ children, candidate, onSuccess }: { children: React.ReactNode; candidate?: any; onSuccess: () => void }) {
      const api = useApi();
@@ -26,6 +28,7 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
      const [mission, setMission] = useState("");
      const [programs, setPrograms] = useState("");
      const [photoUrl, setPhotoUrl] = useState("");
+     const [isBlankBox, setIsBlankBox] = useState(false);
 
      // Convert to WebP and Upload
      const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,8 +89,9 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                setOrderNumber(String(candidate.orderNumber));
                setVision(candidate.vision || "");
                setMission(candidate.mission || "");
-               setPrograms(candidate.programs || "");
+               setPrograms(Array.isArray(candidate.programs) ? candidate.programs.join('\n') : candidate.programs || "");
                setPhotoUrl(candidate.photoUrl || "");
+               setIsBlankBox(candidate.isBlankBox || false);
           } else {
                // Reset
                setChairmanName("");
@@ -97,6 +101,7 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                setMission("");
                setPrograms("");
                setPhotoUrl("");
+               setIsBlankBox(false);
           }
      }, [candidate, open]);
 
@@ -107,27 +112,28 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
           const fullName = viceChairmanName ? `${chairmanName} & ${viceChairmanName}` : chairmanName;
 
           const payload = {
-               name: fullName,
+               name: isBlankBox ? 'Kotak Kosong' : fullName,
                orderNumber: Number(orderNumber),
-               vision,
-               mission,
-               programs,
-               photoUrl
+               vision: isBlankBox ? '' : vision,
+               mission: isBlankBox ? '' : mission,
+               programs: isBlankBox ? '' : programs,
+               photoUrl,
+               isBlankBox,
           };
 
           try {
                if (candidate) {
-                    // Update
                     await api.put(`/candidates/${candidate.id}`, payload);
+                    toast.success("Kandidat berhasil diperbarui");
                } else {
-                    // Create
                     await api.post('/candidates', payload);
+                    toast.success("Kandidat berhasil ditambahkan");
                }
                setOpen(false);
                onSuccess();
-          } catch (error) {
+          } catch (error: any) {
                console.error(error);
-               alert("Gagal menyimpan data kandidat");
+               toast.error(error?.response?.data?.message || error?.message || "Gagal menyimpan data kandidat");
           } finally {
                setLoading(false);
           }
@@ -150,16 +156,29 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                               <Label htmlFor="order">Nomor Urut</Label>
                               <Input id="order" type="number" value={orderNumber} onChange={e => setOrderNumber(e.target.value)} required placeholder="Contoh: 1" />
                          </div>
-                         <div className="grid grid-cols-2 gap-4">
-                              <div className="grid gap-2">
-                                   <Label htmlFor="chairman">Nama Ketua</Label>
-                                   <Input id="chairman" value={chairmanName} onChange={e => setChairmanName(e.target.value)} required placeholder="Nama Ketua..." />
-                              </div>
-                              <div className="grid gap-2">
-                                   <Label htmlFor="vice">Nama Wakil</Label>
-                                   <Input id="vice" value={viceChairmanName} onChange={e => setViceChairmanName(e.target.value)} required placeholder="Nama Wakil..." />
+                         <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed bg-muted/40">
+                              <Checkbox
+                                   id="isBlankBox"
+                                   checked={isBlankBox}
+                                   onCheckedChange={(v) => setIsBlankBox(Boolean(v))}
+                              />
+                              <div>
+                                   <Label htmlFor="isBlankBox" className="font-semibold cursor-pointer">Kotak Kosong</Label>
+                                   <p className="text-xs text-muted-foreground">Aktifkan jika ini adalah pilihan kotak kosong (tanpa kandidat)</p>
                               </div>
                          </div>
+                         {!isBlankBox && (
+                              <div className="grid grid-cols-2 gap-4">
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="chairman">Nama Ketua</Label>
+                                        <Input id="chairman" value={chairmanName} onChange={e => setChairmanName(e.target.value)} required placeholder="Nama Ketua..." />
+                                   </div>
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="vice">Nama Wakil</Label>
+                                        <Input id="vice" value={viceChairmanName} onChange={e => setViceChairmanName(e.target.value)} required placeholder="Nama Wakil..." />
+                                   </div>
+                              </div>
+                         )}
                          <div className="grid gap-2">
                               <Label htmlFor="photo">Foto Kandidat</Label>
                               <div className="flex flex-col gap-4">
@@ -214,18 +233,22 @@ export function CandidateDialog({ children, candidate, onSuccess }: { children: 
                                    <Input id="photo" value={photoUrl} onChange={e => setPhotoUrl(e.target.value)} type="hidden" />
                               </div>
                          </div>
-                         <div className="grid gap-2">
-                              <Label htmlFor="vision">Visi</Label>
-                              <Textarea id="vision" value={vision} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setVision(e.target.value)} placeholder="Visi kandidat..." />
-                         </div>
-                         <div className="grid gap-2">
-                              <Label htmlFor="mission">Misi (Pisahkan dengan baris baru untuk poin-poin)</Label>
-                              <Textarea id="mission" value={mission} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMission(e.target.value)} rows={5} placeholder="1. Misi pertama&#10;2. Misi kedua&#10;..." />
-                         </div>
-                         <div className="grid gap-2">
-                              <Label htmlFor="programs">Program Unggulan (Pisahkan dengan baris baru)</Label>
-                              <Textarea id="programs" value={programs} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrograms(e.target.value)} rows={5} placeholder="1. Program pertama&#10;2. Program kedua&#10;..." />
-                         </div>
+                         {!isBlankBox && (
+                              <>
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="vision">Visi</Label>
+                                        <Textarea id="vision" value={vision} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setVision(e.target.value)} placeholder="Visi kandidat..." />
+                                   </div>
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="mission">Misi (Pisahkan dengan baris baru untuk poin-poin)</Label>
+                                        <Textarea id="mission" value={mission} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMission(e.target.value)} rows={5} placeholder="1. Misi pertama&#10;2. Misi kedua&#10;..." />
+                                   </div>
+                                   <div className="grid gap-2">
+                                        <Label htmlFor="programs">Program Unggulan (Pisahkan dengan baris baru)</Label>
+                                        <Textarea id="programs" value={programs} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrograms(e.target.value)} rows={5} placeholder="1. Program pertama&#10;2. Program kedua&#10;..." />
+                                   </div>
+                              </>
+                         )}
                          <DialogFooter>
                               <Button type="submit" disabled={loading}>
                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
