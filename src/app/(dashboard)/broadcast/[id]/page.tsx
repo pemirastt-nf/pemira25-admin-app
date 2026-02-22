@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Send, Code, Info, Play, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Send, Code, Info, Play, Clock, CheckCircle, Loader2, RefreshCcw, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
      Dialog,
@@ -58,6 +58,8 @@ export default function BroadcastEditorPage({ params }: BroadcastEditorProps) {
      const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
      const [status, setStatus] = useState<string>("draft");
      const [stats, setStats] = useState<{ total: number; sent: number; failed: number } | null>(null);
+     const [failedStored, setFailedStored] = useState(0);
+     const [isRetrying, setIsRetrying] = useState(false);
      const pollRef = useRef<NodeJS.Timeout | null>(null);
 
      // Dialogs
@@ -74,7 +76,7 @@ export default function BroadcastEditorPage({ params }: BroadcastEditorProps) {
 
      const handleOpenCtaConfig = () => {
           setTempCtaText("VOTE SEKARANG");
-          setTempCtaUrl("https://pemira.nurulfikri.ac.id/login");
+          setTempCtaUrl("https://pemira.nurulfikri.ac.id/vote");
           setCtaConfigOpen(true);
      };
 
@@ -104,12 +106,11 @@ Kami mengundang Anda untuk berpartisipasi dalam menentukan masa depan organisasi
 <br><br>
 👉 <b>Silakan login dan pilih kandidat terbaik menurut Anda.</b>
 <br><br>
-{{cta_button|LOGIN & VOTE SEKARANG|https://pemira.nurulfikri.ac.id/login}}
-<br><br>
+{{cta_button|LOGIN & VOTE SEKARANG|https://pemira.nurulfikri.ac.id/vote}}
 Jangan lewatkan kesempatan ini!
 <br><br>
 Salam,<br>
-Panitia PEMIRA STTNF`
+<b>Panitia PEMIRA IM STTNF</b>`
           },
           {
                label: "⏰ Pengingat Voting",
@@ -120,12 +121,11 @@ Kami melihat bahwa Anda belum menggunakan hak suara Anda dalam PEMIRA kali ini.
 <br><br>
 Ingat, partisipasi Anda menentukan siapa yang akan memimpin organisasi mahasiswa ke depan. Proses pemilihan sangat mudah dan cepat.
 <br><br>
-{{cta_button|VOTE SEKARANG|https://pemira.nurulfikri.ac.id/login}}
-<br><br>
+{{cta_button|VOTE SEKARANG|https://pemira.nurulfikri.ac.id/vote}}
 Segera login dan berikan suara Anda sebelum waktu pemilihan berakhir.
 <br><br>
 Salam,<br>
-Panitia PEMIRA STTNF`
+<b>Panitia PEMIRA IM STTNF</b>`
           },
           {
                label: "⚠️ Segera Berakhir",
@@ -136,12 +136,11 @@ Waktu pemilihan tinggal sedikit lagi!
 <br><br>
 Portal pemilihan akan ditutup dalam beberapa jam. Pastikan Anda tidak kehilangan hak pilih Anda.
 <br><br>
-{{cta_button|VOTE SEKARANG (TERAKHIR)|https://pemira.nurulfikri.ac.id/login}}
-<br><br>
+{{cta_button|VOTE SEKARANG (TERAKHIR)|https://pemira.nurulfikri.ac.id/vote}}
 Satu suara dari Anda sangat berharga.
 <br><br>
 Salam,<br>
-Panitia PEMIRA STTNF`
+<b>Panitia PEMIRA IM STTNF</b>`
           }
      ];
 
@@ -177,6 +176,12 @@ Panitia PEMIRA STTNF`
                          setTargetType(data.filters.target);
                          setSelectedBatches(data.filters.batches || []);
                     }
+
+                    // Fetch failed stored count
+                    try {
+                         const fr = await api.get(`/broadcast/${id}/failed-redis`);
+                         setFailedStored(fr.data.count ?? 0);
+                    } catch { /* silent */ }
                } catch (error) {
                     console.error(error);
                     toast.error("Gagal memuat data broadcast");
@@ -204,6 +209,11 @@ Panitia PEMIRA STTNF`
                                    clearInterval(pollRef.current);
                                    pollRef.current = null;
                               }
+                              // Refresh failed stored count after processing ends
+                              try {
+                                   const fr = await api.get(`/broadcast/${id}/failed-redis`);
+                                   setFailedStored(fr.data.count ?? 0);
+                              } catch { /* silent */ }
                          }
                     } catch { /* silent */ }
                }, 5000);
@@ -219,6 +229,23 @@ Panitia PEMIRA STTNF`
                }
           };
      }, [status, id, isNew, api]);
+
+     const handleRetry = async () => {
+          setIsRetrying(true);
+          try {
+               const res = await api.post(`/broadcast/${id}/retry-failed`);
+               toast.success(`${res.data.retried} email dijadwalkan ulang`);
+               setFailedStored(0);
+               setStatus('processing');
+               // Refresh stats
+               const br = await api.get(`/broadcast/${id}`);
+               setStats(br.data.stats);
+          } catch (error: any) {
+               toast.error(error?.response?.data?.message ?? 'Gagal menjadwalkan ulang');
+          } finally {
+               setIsRetrying(false);
+          }
+     };
 
      const handleSaveDraft = async () => {
           if (!subject) return toast.error("Subject wajib diisi");
@@ -527,6 +554,33 @@ Panitia PEMIRA STTNF`
                                                   <span className="font-medium">{stats.total}</span>
                                              </div>
                                         </div>
+                                   </CardContent>
+                              </Card>
+                         )}
+
+                         {failedStored > 0 && (
+                              <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
+                                   <CardHeader className="pb-2">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                             <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                             Email Gagal Tersimpan
+                                        </CardTitle>
+                                        <CardDescription>
+                                             {failedStored} email gagal terkirim dan tersimpan di antrian. Kirim ulang setelah SMTP diperbaiki.
+                                        </CardDescription>
+                                   </CardHeader>
+                                   <CardContent>
+                                        <Button
+                                             className="w-full"
+                                             variant="outline"
+                                             onClick={handleRetry}
+                                             disabled={isRetrying}
+                                        >
+                                             {isRetrying
+                                                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menjadwalkan ulang...</>
+                                                  : <><RefreshCcw className="w-4 h-4 mr-2" /> Kirim Ulang ({failedStored} email)</>
+                                             }
+                                        </Button>
                                    </CardContent>
                               </Card>
                          )}
