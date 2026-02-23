@@ -5,13 +5,13 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Search, Undo2, Download, UserCheck, UserX, Clock, Percent, Calendar as CalendarIcon } from "lucide-react";
+import { CheckCircle, XCircle, Search, Undo2, Download, UserCheck, UserX, Clock, Percent, Calendar as CalendarIcon, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from "xlsx";
 import { StatsCard } from "@/components/dashboard/stats-card";
@@ -22,13 +22,22 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
+function useDebounce<T>(value: T, delay: number): T {
+     const [debounced, setDebounced] = useState(value);
+     useEffect(() => {
+          const t = setTimeout(() => setDebounced(value), delay);
+          return () => clearTimeout(t);
+     }, [value, delay]);
+     return debounced;
+}
+
 export default function CheckInPage() {
      const api = useApi();
      const queryClient = useQueryClient();
      const [searchQuery, setSearchQuery] = useState("");
      const [isDownloading, setIsDownloading] = useState(false);
-     
-     // Date Filter State
+     const debouncedSearch = useDebounce(searchQuery, 400);
+
      const [date, setDate] = useState<DateRange | undefined>({
           from: new Date(),
           to: new Date(),
@@ -40,22 +49,33 @@ export default function CheckInPage() {
                const params = new URLSearchParams();
                if (date?.from) params.append('startDate', date.from.toISOString());
                if (date?.to) params.append('endDate', date.to.toISOString());
-               
                const res = await api.get(`/votes/checkin-stats?${params.toString()}`);
                return res.data;
           },
           refetchInterval: 5000
      });
 
+     // Paginated + searched table data
      const { data: students, isLoading } = useQuery({
-          queryKey: ['checkin-students', searchQuery],
+          queryKey: ['checkin-students', debouncedSearch],
           queryFn: async () => {
-               const res = await api.get(`/students?search=${searchQuery}&accessType=offline&includeAllRoles=true`);
+               const res = await api.get(`/students?search=${debouncedSearch}&accessType=offline&includeAllRoles=true&limit=50`);
                return res.data.data || [];
           },
           enabled: true
      });
 
+     // Full DPT offline — for rekap angkatan (not affected by search)
+     const { data: dptOfflineStudents, isLoading: isLoadingDpt } = useQuery({
+          queryKey: ['dpt-offline-full'],
+          queryFn: async () => {
+               const res = await api.get('/students?accessType=offline&includeAllRoles=true&limit=10000');
+               return res.data.data || [];
+          },
+          staleTime: 60000,
+     });
+
+     // Full DPT online — for rekap angkatan
      const { data: onlineStudents, isLoading: isLoadingOnline } = useQuery({
           queryKey: ['online-students'],
           queryFn: async () => {
@@ -75,9 +95,10 @@ export default function CheckInPage() {
           return d >= from && d <= to;
      };
 
+     // batchSummary uses full DPT data, not the paginated search result
      const batchSummary = useMemo(() => {
           const map: Record<string, { totalOffline: number; checkedIn: number; totalOnline: number; votedOnline: number }> = {};
-          for (const s of (students || [])) {
+          for (const s of (dptOfflineStudents || [])) {
                const batch = s.batch || 'Tidak Diketahui';
                if (!map[batch]) map[batch] = { totalOffline: 0, checkedIn: 0, totalOnline: 0, votedOnline: 0 };
                map[batch].totalOffline++;
@@ -92,15 +113,15 @@ export default function CheckInPage() {
           return Object.entries(map)
                .map(([batch, v]) => ({ batch, ...v }))
                .sort((a, b) => a.batch.localeCompare(b.batch));
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-     }, [students, onlineStudents, date]);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [dptOfflineStudents, onlineStudents, date]);
 
      const dateSummary = useMemo(() => {
           const map: Record<string, { offline: number; online: number }> = {};
           const toKey = (ts: string) => new Date(ts).toLocaleDateString('id-ID', {
                day: '2-digit', month: 'long', year: 'numeric'
           });
-          for (const s of (students || [])) {
+          for (const s of (dptOfflineStudents || [])) {
                if (s.checkedInAt && isInDateRange(s.checkedInAt)) {
                     const k = toKey(s.checkedInAt);
                     if (!map[k]) map[k] = { offline: 0, online: 0 };
@@ -117,8 +138,8 @@ export default function CheckInPage() {
           return Object.entries(map)
                .map(([date, { offline, online }]) => ({ date, offline, online, total: offline + online }))
                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-     }, [students, onlineStudents, date]);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [dptOfflineStudents, onlineStudents, date]);
 
      const handleDownloadReport = async () => {
           try {
@@ -138,7 +159,6 @@ export default function CheckInPage() {
 
                const workbook = XLSX.utils.book_new();
 
-               // Sheet 1: Detail
                const detailRows = checkedIn.map((s: any, i: number) => {
                     const dt = s.checkedInAt ? new Date(s.checkedInAt) : null;
                     return {
@@ -158,7 +178,6 @@ export default function CheckInPage() {
                ];
                XLSX.utils.book_append_sheet(workbook, wsDetail, "Detail Check-in");
 
-               // Sheet 2: Rekap per Angkatan
                const batchMap: Record<string, { total: number; checkedIn: number }> = {};
                for (const s of allOfflineStudents) {
                     const b = s.batch || 'Tidak Diketahui';
@@ -179,7 +198,6 @@ export default function CheckInPage() {
                wsBatch['!cols'] = [{ wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
                XLSX.utils.book_append_sheet(workbook, wsBatch, "Rekap per Angkatan");
 
-               // Sheet 3: Rekap per Tanggal
                const dateMap: Record<string, number> = {};
                for (const s of checkedIn) {
                     const dateKey = new Date(s.checkedInAt).toLocaleDateString('id-ID', {
@@ -208,6 +226,7 @@ export default function CheckInPage() {
                async () => {
                     await api.post('/votes/checkin', { nim });
                     queryClient.invalidateQueries({ queryKey: ['checkin-students'] });
+                    queryClient.invalidateQueries({ queryKey: ['dpt-offline-full'] });
                },
                {
                     loading: 'Memproses check-in...',
@@ -222,6 +241,7 @@ export default function CheckInPage() {
                async () => {
                     await api.post('/votes/uncheckin', { nim });
                     queryClient.invalidateQueries({ queryKey: ['checkin-students'] });
+                    queryClient.invalidateQueries({ queryKey: ['dpt-offline-full'] });
                },
                {
                     loading: 'Membatalkan check-in...',
@@ -288,8 +308,10 @@ export default function CheckInPage() {
                     );
                },
           },
-     // eslint-disable-next-line react-hooks/exhaustive-deps
+          // eslint-disable-next-line react-hooks/exhaustive-deps
      ], [handleCheckIn, handleUnCheckIn]);
+
+     const isRekapLoading = isLoadingDpt || isLoadingOnline;
 
      return (
           <div className="space-y-6">
@@ -343,26 +365,26 @@ export default function CheckInPage() {
                </div>
 
                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <StatsCard 
-                         title="Total Check-in" 
+                    <StatsCard
+                         title="Total Check-in"
                          value={stats?.totalCheckedIn ?? 0}
                          icon={UserCheck}
                          description="Mahasiswa (Offline)"
                     />
-                    <StatsCard 
-                         title="Check-in Hari Ini" 
+                    <StatsCard
+                         title="Check-in Hari Ini"
                          value={stats?.todayCheckedIn ?? 0}
                          icon={Clock}
                          description="Mahasiswa"
                     />
-                    <StatsCard 
-                         title="Belum Memilih" 
+                    <StatsCard
+                         title="Belum Memilih"
                          value={stats?.remainingVoters ?? 0}
                          icon={UserX}
                          description="Mahasiswa (Total)"
                     />
-                    <StatsCard 
-                         title="Partisipasi Total" 
+                    <StatsCard
+                         title="Partisipasi Total"
                          value={`${Number(stats?.completionRate ?? 0).toFixed(1)}%`}
                          icon={Percent}
                          description="DPT (Online + Offline)"
@@ -394,6 +416,10 @@ export default function CheckInPage() {
                          <TabsTrigger value="tanggal">Rekap per Tanggal</TabsTrigger>
                     </TabsList>
                     <TabsContent value="angkatan">
+                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2 px-1">
+                              <Info className="h-3.5 w-3.5 shrink-0" />
+                              <span>Kolom <strong>DPT</strong> menampilkan total seluruh mahasiswa. Kolom <strong>Check-in / Voting</strong> difilter berdasarkan rentang tanggal di atas.</span>
+                         </div>
                          <div className="border rounded-lg bg-card">
                               <Table>
                                    <TableHeader>
@@ -407,7 +433,7 @@ export default function CheckInPage() {
                                         </TableRow>
                                    </TableHeader>
                                    <TableBody>
-                                        {isLoading || isLoadingOnline ? (
+                                        {isRekapLoading ? (
                                              Array.from({ length: 3 }).map((_, i) => (
                                                   <TableRow key={i}>
                                                        {Array.from({ length: 6 }).map((_, j) => (
@@ -434,8 +460,8 @@ export default function CheckInPage() {
                                                             <TableCell className="text-right">
                                                                  <Badge variant="outline" className={cn(
                                                                       Number(pct) >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                                                                      Number(pct) >= 50 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                                                      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                                                           Number(pct) >= 50 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                                                                "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                                                                  )}>{partisipasi} ({pct}%)</Badge>
                                                             </TableCell>
                                                        </TableRow>
@@ -458,7 +484,7 @@ export default function CheckInPage() {
                                         </TableRow>
                                    </TableHeader>
                                    <TableBody>
-                                        {isLoading || isLoadingOnline ? (
+                                        {isRekapLoading ? (
                                              Array.from({ length: 3 }).map((_, i) => (
                                                   <TableRow key={i}>
                                                        {Array.from({ length: 4 }).map((_, j) => (

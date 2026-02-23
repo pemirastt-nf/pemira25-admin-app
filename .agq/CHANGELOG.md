@@ -1,3 +1,10 @@
+## [2026-02-23] Checkin Page — Performance & Bug Fixes
+
+### Fixed
+- `backend/src/routes/studentRoutes.ts`: Search dialihkan dari in-memory JS filter ke SQL ILIKE + parallel COUNT query. Mendukung ribuan data tanpa loading penuh.
+- `frondend-admin/checkin/page.tsx`: Debounce 400ms pada search input — API hanya dipanggil setelah berhenti mengetik.
+- `frondend-admin/checkin/page.tsx`: Pisahkan query `dpt-offline-full` khusus untuk rekap angkatan agar DPT Offline selalu tampil lengkap tanpa terpengaruh filter pencarian.
+- `frondend-admin/checkin/page.tsx`: Tambahkan info label di tab Rekap per Angkatan yang menjelaskan perilaku filter tanggal.
 ## [2026-02-23] Mobile Responsive Dashboard Header Buttons
 
 ### Changed
