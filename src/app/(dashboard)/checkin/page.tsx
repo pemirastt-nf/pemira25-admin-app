@@ -6,7 +6,7 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo, useEffect, useTransition, useCallback, memo } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,9 +32,6 @@ function useDebounce<T>(value: T, delay: number): T {
      return debounced;
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Rekap section — isolated with React.memo so it NEVER re-renders on search input
-// ────────────────────────────────────────────────────────────────────────────────
 interface BatchRow {
      batch: string;
      totalOffline: number;
@@ -156,17 +153,13 @@ const RekapSection = memo(function RekapSection({ batchSummary, dateSummary, isL
      );
 });
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Main page
-// ────────────────────────────────────────────────────────────────────────────────
 export default function CheckInPage() {
      const api = useApi();
      const queryClient = useQueryClient();
-     const [searchQuery, setSearchQuery] = useState("");
-     const [isPending, startTransition] = useTransition();
+     const [inputValue, setInputValue] = useState("");
      const [isDownloading, setIsDownloading] = useState(false);
      const [pendingNims, setPendingNims] = useState<Set<string>>(new Set());
-     const debouncedSearch = useDebounce(searchQuery, 400);
+     const debouncedSearch = useDebounce(inputValue, 400);
 
      const [date, setDate] = useState<DateRange | undefined>({
           from: new Date(),
@@ -496,17 +489,14 @@ export default function CheckInPage() {
                <DataTable
                     columns={columns}
                     data={students || []}
-                    isLoading={isLoading || isPending}
+                    isLoading={isLoading}
                     loadingRows={5}
                     toolbar={
                          <div className="flex gap-2 max-w-md w-full">
                               <Input
                                    placeholder="Cari NIM atau Nama..."
-                                   value={searchQuery}
-                                   onChange={(e) => {
-                                        const val = e.target.value;
-                                        startTransition(() => setSearchQuery(val));
-                                   }}
+                                   value={inputValue}
+                                   onChange={(e) => setInputValue(e.target.value)}
                               />
                               <Button variant="outline" size="icon">
                                    <Search className="h-4 w-4" />
