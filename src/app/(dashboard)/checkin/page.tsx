@@ -6,7 +6,7 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo, useEffect, useCallback, memo } from "react";
+import { useState, useMemo, useRef, useCallback, memo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,14 +23,7 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-function useDebounce<T>(value: T, delay: number): T {
-     const [debounced, setDebounced] = useState(value);
-     useEffect(() => {
-          const t = setTimeout(() => setDebounced(value), delay);
-          return () => clearTimeout(t);
-     }, [value, delay]);
-     return debounced;
-}
+
 
 interface BatchRow {
      batch: string;
@@ -156,10 +149,10 @@ const RekapSection = memo(function RekapSection({ batchSummary, dateSummary, isL
 export default function CheckInPage() {
      const api = useApi();
      const queryClient = useQueryClient();
-     const [inputValue, setInputValue] = useState("");
+     const [debouncedSearch, setDebouncedSearch] = useState("");
      const [isDownloading, setIsDownloading] = useState(false);
      const [pendingNims, setPendingNims] = useState<Set<string>>(new Set());
-     const debouncedSearch = useDebounce(inputValue, 400);
+     const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
      const [date, setDate] = useState<DateRange | undefined>({
           from: new Date(),
@@ -495,8 +488,10 @@ export default function CheckInPage() {
                          <div className="flex gap-2 max-w-md w-full">
                               <Input
                                    placeholder="Cari NIM atau Nama..."
-                                   value={inputValue}
-                                   onChange={(e) => setInputValue(e.target.value)}
+                                   onChange={(e) => {
+                                        clearTimeout(debounceRef.current);
+                                        debounceRef.current = setTimeout(() => setDebouncedSearch(e.target.value), 400);
+                                   }}
                               />
                               <Button variant="outline" size="icon">
                                    <Search className="h-4 w-4" />
