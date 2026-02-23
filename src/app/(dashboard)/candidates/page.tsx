@@ -106,7 +106,8 @@ export default function CandidatesPage() {
                     </div>
                     <CandidateDialog onSuccess={refetch}>
                          <Button>
-                              <Plus className="mr-2 h-4 w-4" /> Tambah Kandidat
+                              <Plus className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Tambah Kandidat</span>
                          </Button>
                     </CandidateDialog>
                </div>

@@ -5,7 +5,9 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +17,7 @@ import * as XLSX from "xlsx";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -53,37 +56,144 @@ export default function CheckInPage() {
           enabled: true
      });
 
+     const { data: onlineStudents, isLoading: isLoadingOnline } = useQuery({
+          queryKey: ['online-students'],
+          queryFn: async () => {
+               const res = await api.get('/students?accessType=online&includeAllRoles=true&limit=10000');
+               return res.data.data || [];
+          },
+          refetchInterval: 10000
+     });
+
+     const isInDateRange = (ts: string | null) => {
+          if (!ts) return false;
+          if (!date?.from) return true;
+          const d = new Date(ts);
+          const from = new Date(date.from); from.setHours(0, 0, 0, 0);
+          const to = date.to ? new Date(date.to) : new Date(date.from);
+          to.setHours(23, 59, 59, 999);
+          return d >= from && d <= to;
+     };
+
+     const batchSummary = useMemo(() => {
+          const map: Record<string, { totalOffline: number; checkedIn: number; totalOnline: number; votedOnline: number }> = {};
+          for (const s of (students || [])) {
+               const batch = s.batch || 'Tidak Diketahui';
+               if (!map[batch]) map[batch] = { totalOffline: 0, checkedIn: 0, totalOnline: 0, votedOnline: 0 };
+               map[batch].totalOffline++;
+               if (s.hasVoted && s.voteMethod === 'offline' && isInDateRange(s.checkedInAt)) map[batch].checkedIn++;
+          }
+          for (const s of (onlineStudents || [])) {
+               const batch = s.batch || 'Tidak Diketahui';
+               if (!map[batch]) map[batch] = { totalOffline: 0, checkedIn: 0, totalOnline: 0, votedOnline: 0 };
+               map[batch].totalOnline++;
+               if (s.hasVoted && s.voteMethod === 'online' && isInDateRange(s.votedAt)) map[batch].votedOnline++;
+          }
+          return Object.entries(map)
+               .map(([batch, v]) => ({ batch, ...v }))
+               .sort((a, b) => a.batch.localeCompare(b.batch));
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [students, onlineStudents, date]);
+
+     const dateSummary = useMemo(() => {
+          const map: Record<string, { offline: number; online: number }> = {};
+          const toKey = (ts: string) => new Date(ts).toLocaleDateString('id-ID', {
+               day: '2-digit', month: 'long', year: 'numeric'
+          });
+          for (const s of (students || [])) {
+               if (s.checkedInAt && isInDateRange(s.checkedInAt)) {
+                    const k = toKey(s.checkedInAt);
+                    if (!map[k]) map[k] = { offline: 0, online: 0 };
+                    map[k].offline++;
+               }
+          }
+          for (const s of (onlineStudents || [])) {
+               if (s.votedAt && isInDateRange(s.votedAt)) {
+                    const k = toKey(s.votedAt);
+                    if (!map[k]) map[k] = { offline: 0, online: 0 };
+                    map[k].online++;
+               }
+          }
+          return Object.entries(map)
+               .map(([date, { offline, online }]) => ({ date, offline, online, total: offline + online }))
+               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [students, onlineStudents, date]);
+
      const handleDownloadReport = async () => {
           try {
                setIsDownloading(true);
                const res = await api.get('/students?accessType=offline&includeAllRoles=true&limit=10000');
-               const allOfflineStudents = res.data.data || [];
+               const allOfflineStudents: any[] = res.data.data || [];
 
-               const checkedInStudents = allOfflineStudents.filter((s: any) => 
+               const checkedIn = allOfflineStudents.filter((s: any) =>
                     s.hasVoted && s.voteMethod === 'offline' && s.checkedInAt
                );
 
-               if (checkedInStudents.length === 0) {
+               if (checkedIn.length === 0) {
                     toast.error("Belum ada data mahasiswa yang melakukan check-in.");
                     setIsDownloading(false);
                     return;
                }
 
-               const data = checkedInStudents.map((s: any, index: number) => ({
-                    "No": index + 1,
-                    "NIM": s.nim,
-                    "Nama": s.name,
-                    "Angkatan": s.batch || "-",
-                    "Waktu Check-in": s.checkedInAt ? new Date(s.checkedInAt).toLocaleString('id-ID') : "-",
-                    "Petugas Check-in": s.checkedInByName || s.checkedInBy || "-"
-               }));
-
-               const worksheet = XLSX.utils.json_to_sheet(data);
                const workbook = XLSX.utils.book_new();
-               XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Check-in");
 
-               XLSX.writeFile(workbook, `Laporan_Checkin_PEMIRA_${new Date().toISOString().split('T')[0]}.csv`);
-               
+               // Sheet 1: Detail
+               const detailRows = checkedIn.map((s: any, i: number) => {
+                    const dt = s.checkedInAt ? new Date(s.checkedInAt) : null;
+                    return {
+                         "No": i + 1,
+                         "NIM": s.nim,
+                         "Nama": s.name,
+                         "Angkatan": s.batch || "-",
+                         "Tanggal": dt ? dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : "-",
+                         "Jam": dt ? dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "-",
+                         "Petugas": s.checkedInByName || s.checkedInBy || "-",
+                    };
+               });
+               const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+               wsDetail['!cols'] = [
+                    { wch: 5 }, { wch: 16 }, { wch: 36 }, { wch: 12 },
+                    { wch: 22 }, { wch: 12 }, { wch: 28 },
+               ];
+               XLSX.utils.book_append_sheet(workbook, wsDetail, "Detail Check-in");
+
+               // Sheet 2: Rekap per Angkatan
+               const batchMap: Record<string, { total: number; checkedIn: number }> = {};
+               for (const s of allOfflineStudents) {
+                    const b = s.batch || 'Tidak Diketahui';
+                    if (!batchMap[b]) batchMap[b] = { total: 0, checkedIn: 0 };
+                    batchMap[b].total++;
+                    if (s.hasVoted && s.voteMethod === 'offline' && s.checkedInAt) batchMap[b].checkedIn++;
+               }
+               const batchRows = Object.entries(batchMap)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([batch, { total, checkedIn }]) => ({
+                         "Angkatan": batch,
+                         "Total Terdaftar": total,
+                         "Total Check-in": checkedIn,
+                         "Belum Check-in": total - checkedIn,
+                         "Persentase (%)": total > 0 ? Number(((checkedIn / total) * 100).toFixed(1)) : 0,
+                    }));
+               const wsBatch = XLSX.utils.json_to_sheet(batchRows);
+               wsBatch['!cols'] = [{ wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+               XLSX.utils.book_append_sheet(workbook, wsBatch, "Rekap per Angkatan");
+
+               // Sheet 3: Rekap per Tanggal
+               const dateMap: Record<string, number> = {};
+               for (const s of checkedIn) {
+                    const dateKey = new Date(s.checkedInAt).toLocaleDateString('id-ID', {
+                         day: '2-digit', month: 'long', year: 'numeric'
+                    });
+                    dateMap[dateKey] = (dateMap[dateKey] || 0) + 1;
+               }
+               const dateRows = Object.entries(dateMap)
+                    .map(([date, count]) => ({ "Tanggal": date, "Jumlah Check-in": count }));
+               const wsDate = XLSX.utils.json_to_sheet(dateRows);
+               wsDate['!cols'] = [{ wch: 24 }, { wch: 16 }];
+               XLSX.utils.book_append_sheet(workbook, wsDate, "Rekap per Tanggal");
+
+               XLSX.writeFile(workbook, `Laporan_Checkin_PEMIRA_${new Date().toISOString().split('T')[0]}.xlsx`);
                toast.success("Laporan berhasil diunduh");
           } catch (error) {
                console.error("Download error:", error);
@@ -130,6 +240,56 @@ export default function CheckInPage() {
           }
           return <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">Sudah Check-in (Offline)</Badge>;
      };
+
+     const columns = useMemo<ColumnDef<any>[]>(() => [
+          {
+               accessorKey: "nim",
+               header: "NIM",
+               cell: ({ row }) => <span className="font-mono">{row.original.nim}</span>,
+          },
+          {
+               accessorKey: "name",
+               header: "Nama",
+               cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+          },
+          {
+               accessorKey: "batch",
+               header: "Angkatan",
+               cell: ({ row }) => row.original.batch || "-",
+          },
+          {
+               accessorKey: "status",
+               header: "Status",
+               enableSorting: false,
+               cell: ({ row }) => getStatusBadge(row.original),
+          },
+          {
+               id: "aksi",
+               header: () => <div className="text-right">Aksi</div>,
+               enableSorting: false,
+               cell: ({ row }) => {
+                    const student = row.original;
+                    return (
+                         <div className="flex justify-end">
+                              {!student.hasVoted ? (
+                                   <Button size="sm" onClick={() => handleCheckIn(student.nim)}>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> Check-in
+                                   </Button>
+                              ) : student.voteMethod === 'offline' ? (
+                                   <Button size="sm" variant="outline" onClick={() => handleUnCheckIn(student.nim)}>
+                                        <Undo2 className="mr-2 h-4 w-4" /> Undo
+                                   </Button>
+                              ) : (
+                                   <Button size="sm" variant="ghost" disabled>
+                                        <XCircle className="mr-2 h-4 w-4" /> Sudah Online
+                                   </Button>
+                              )}
+                         </div>
+                    );
+               },
+          },
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+     ], [handleCheckIn, handleUnCheckIn]);
 
      return (
           <div className="space-y-6">
@@ -209,72 +369,122 @@ export default function CheckInPage() {
                     />
                </div>
 
-               <div className="flex gap-2 max-w-md">
-                    <Input
-                         placeholder="Cari NIM atau Nama..."
-                         value={searchQuery}
-                         onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Button variant="outline" size="icon">
-                         <Search className="h-4 w-4" />
-                    </Button>
-               </div>
+               <DataTable
+                    columns={columns}
+                    data={students || []}
+                    isLoading={isLoading}
+                    loadingRows={5}
+                    toolbar={
+                         <div className="flex gap-2 max-w-md w-full">
+                              <Input
+                                   placeholder="Cari NIM atau Nama..."
+                                   value={searchQuery}
+                                   onChange={(e) => setSearchQuery(e.target.value)}
+                              />
+                              <Button variant="outline" size="icon">
+                                   <Search className="h-4 w-4" />
+                              </Button>
+                         </div>
+                    }
+               />
 
-               <div className="border rounded-lg bg-card">
-                    <Table>
-                         <TableHeader>
-                              <TableRow>
-                                   <TableHead>NIM</TableHead>
-                                   <TableHead>Nama</TableHead>
-                                   <TableHead>Angkatan</TableHead>
-                                   <TableHead>Status</TableHead>
-                                   <TableHead className="text-right">Aksi</TableHead>
-                              </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                              {isLoading ? (
-                                   Array.from({ length: 5 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                             <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                             <TableCell className="text-right"><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+               <Tabs defaultValue="angkatan">
+                    <TabsList>
+                         <TabsTrigger value="angkatan">Rekap per Angkatan</TabsTrigger>
+                         <TabsTrigger value="tanggal">Rekap per Tanggal</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="angkatan">
+                         <div className="border rounded-lg bg-card">
+                              <Table>
+                                   <TableHeader>
+                                        <TableRow>
+                                             <TableHead>Angkatan</TableHead>
+                                             <TableHead className="text-right">DPT Offline</TableHead>
+                                             <TableHead className="text-right">Check-in (Offline)</TableHead>
+                                             <TableHead className="text-right">DPT Online</TableHead>
+                                             <TableHead className="text-right">Voting (Online)</TableHead>
+                                             <TableHead className="text-right">Total Partisipasi</TableHead>
                                         </TableRow>
-                                   ))
-                              ) : students?.length === 0 ? (
-                                   <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                             {searchQuery ? "Tidak ditemukan mahasiswa dengan kata kunci tersebut." : "Belum ada data mahasiswa offline."}
-                                        </TableCell>
-                                   </TableRow>
-                              ) : (
-                                   students?.map((student: any) => (
-                                        <TableRow key={student.id}>
-                                             <TableCell className="font-mono">{student.nim}</TableCell>
-                                             <TableCell className="font-medium">{student.name}</TableCell>
-                                             <TableCell>{student.batch || '-'}</TableCell>
-                                             <TableCell>{getStatusBadge(student)}</TableCell>
-                                             <TableCell className="text-right">
-                                                  {!student.hasVoted ? (
-                                                       <Button size="sm" onClick={() => handleCheckIn(student.nim)}>
-                                                            <CheckCircle className="mr-2 h-4 w-4" /> Check-in
-                                                       </Button>
-                                                  ) : student.voteMethod === 'offline' ? (
-                                                       <Button size="sm" variant="outline" onClick={() => handleUnCheckIn(student.nim)}>
-                                                            <Undo2 className="mr-2 h-4 w-4" /> Undo
-                                                       </Button>
-                                                  ) : (
-                                                       <Button size="sm" variant="ghost" disabled>
-                                                            <XCircle className="mr-2 h-4 w-4" /> Sudah Online
-                                                       </Button>
-                                                  )}
-                                             </TableCell>
+                                   </TableHeader>
+                                   <TableBody>
+                                        {isLoading || isLoadingOnline ? (
+                                             Array.from({ length: 3 }).map((_, i) => (
+                                                  <TableRow key={i}>
+                                                       {Array.from({ length: 6 }).map((_, j) => (
+                                                            <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
+                                                       ))}
+                                                  </TableRow>
+                                             ))
+                                        ) : batchSummary.length === 0 ? (
+                                             <TableRow>
+                                                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">Belum ada data.</TableCell>
+                                             </TableRow>
+                                        ) : (
+                                             batchSummary.map((row) => {
+                                                  const dpt = row.totalOffline + row.totalOnline;
+                                                  const partisipasi = row.checkedIn + row.votedOnline;
+                                                  const pct = dpt > 0 ? ((partisipasi / dpt) * 100).toFixed(1) : "0.0";
+                                                  return (
+                                                       <TableRow key={row.batch}>
+                                                            <TableCell className="font-medium">{row.batch}</TableCell>
+                                                            <TableCell className="text-right">{row.totalOffline}</TableCell>
+                                                            <TableCell className="text-right">{row.checkedIn}</TableCell>
+                                                            <TableCell className="text-right">{row.totalOnline}</TableCell>
+                                                            <TableCell className="text-right">{row.votedOnline}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                 <Badge variant="outline" className={cn(
+                                                                      Number(pct) >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                                                                      Number(pct) >= 50 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                                                      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                                                 )}>{partisipasi} ({pct}%)</Badge>
+                                                            </TableCell>
+                                                       </TableRow>
+                                                  );
+                                             })
+                                        )}
+                                   </TableBody>
+                              </Table>
+                         </div>
+                    </TabsContent>
+                    <TabsContent value="tanggal">
+                         <div className="border rounded-lg bg-card">
+                              <Table>
+                                   <TableHeader>
+                                        <TableRow>
+                                             <TableHead>Tanggal</TableHead>
+                                             <TableHead className="text-right">Offline (Check-in)</TableHead>
+                                             <TableHead className="text-right">Online (Voting)</TableHead>
+                                             <TableHead className="text-right">Total</TableHead>
                                         </TableRow>
-                                   ))
-                              )}
-                         </TableBody>
-                    </Table>
-               </div>
+                                   </TableHeader>
+                                   <TableBody>
+                                        {isLoading || isLoadingOnline ? (
+                                             Array.from({ length: 3 }).map((_, i) => (
+                                                  <TableRow key={i}>
+                                                       {Array.from({ length: 4 }).map((_, j) => (
+                                                            <TableCell key={j}><Skeleton className="h-4 w-16" /></TableCell>
+                                                       ))}
+                                                  </TableRow>
+                                             ))
+                                        ) : dateSummary.length === 0 ? (
+                                             <TableRow>
+                                                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">Belum ada data dalam rentang tanggal ini.</TableCell>
+                                             </TableRow>
+                                        ) : (
+                                             dateSummary.map((row) => (
+                                                  <TableRow key={row.date}>
+                                                       <TableCell className="font-medium">{row.date}</TableCell>
+                                                       <TableCell className="text-right">{row.offline}</TableCell>
+                                                       <TableCell className="text-right">{row.online}</TableCell>
+                                                       <TableCell className="text-right font-semibold">{row.total}</TableCell>
+                                                  </TableRow>
+                                             ))
+                                        )}
+                                   </TableBody>
+                              </Table>
+                         </div>
+                    </TabsContent>
+               </Tabs>
           </div>
      );
 }

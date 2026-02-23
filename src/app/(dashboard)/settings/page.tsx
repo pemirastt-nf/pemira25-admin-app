@@ -6,30 +6,50 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, X, CalendarDays } from "lucide-react";
 import { api } from "@/lib/api";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parseISO } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+
+interface VotingSchedules {
+     dates: string[];   // YYYY-MM-DD
+     startTime: string; // HH:MM
+     endTime: string;   // HH:MM
+}
 
 export default function SettingsPage() {
      const [loading, setLoading] = useState(false);
      const [settings, setSettings] = useState({
           isVoteOpen: false,
-          startDate: "",
-          endDate: "",
           announcementMessage: "",
           showAnnouncement: false,
           allowOtpEmail: true,
           allowBroadcastEmail: true
      });
 
+     const [schedules, setSchedules] = useState<VotingSchedules>({
+          dates: [],
+          startTime: "08:00",
+          endTime: "16:00",
+     });
+
      const fetchSettings = useCallback(async () => {
           try {
                const res = await api.get('/settings');
+               const data = res.data;
                setSettings({
-                    ...res.data,
-                    startDate: res.data.startDate ? new Date(res.data.startDate).toISOString().slice(0, 16) : "",
-                    endDate: res.data.endDate ? new Date(res.data.endDate).toISOString().slice(0, 16) : "",
+                    isVoteOpen: data.isVoteOpen,
+                    announcementMessage: data.announcementMessage || "",
+                    showAnnouncement: data.showAnnouncement,
+                    allowOtpEmail: data.allowOtpEmail,
+                    allowBroadcastEmail: data.allowBroadcastEmail,
                });
+               if (data.votingSchedules) {
+                    setSchedules(data.votingSchedules);
+               }
           } catch (error) {
                console.error("Fetch settings error:", error);
                toast.error("Gagal mengambil pengaturan sistem. Pastikan backend berjalan.");
@@ -41,23 +61,25 @@ export default function SettingsPage() {
      }, [fetchSettings]);
 
      const handleSave = async () => {
-          if ((settings.startDate && !settings.endDate) || (!settings.startDate && settings.endDate)) {
-               toast.error("Waktu Mulai dan Waktu Selesai harus diisi keduanya atau dikosongkan keduanya.");
-               return;
-          }
-
-          if (settings.startDate && settings.endDate) {
-               const start = new Date(settings.startDate);
-               const end = new Date(settings.endDate);
-               if (end <= start) {
-                    toast.error("Waktu Selesai harus lebih besar dari Waktu Mulai.");
+          if (schedules.dates.length > 0) {
+               if (!schedules.startTime || !schedules.endTime) {
+                    toast.error("Jam Mulai dan Jam Selesai harus diisi.");
+                    return;
+               }
+               if (schedules.startTime >= schedules.endTime) {
+                    toast.error("Jam Selesai harus lebih besar dari Jam Mulai.");
                     return;
                }
           }
 
           setLoading(true);
           try {
-               await api.put('/settings', settings);
+               await api.put('/settings', {
+                    ...settings,
+                    startDate: null,
+                    endDate: null,
+                    votingSchedules: schedules.dates.length > 0 ? schedules : null,
+               });
                toast.success("Pengaturan berhasil disimpan");
           } catch (error) {
                console.error("Save settings error:", error);
@@ -67,12 +89,29 @@ export default function SettingsPage() {
           }
      };
 
+     const selectedDates = schedules.dates.map((d) => parseISO(d));
+
+     const handleCalendarSelect = (days: Date[] | undefined) => {
+          const sorted = (days || [])
+               .map((d) => {
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+               })
+               .sort();
+          setSchedules((prev) => ({ ...prev, dates: sorted }));
+     };
+
+     const removeDate = (dateStr: string) => {
+          setSchedules((prev) => ({ ...prev, dates: prev.dates.filter((d) => d !== dateStr) }));
+     };
+
      return (
           <div className="flex-1 space-y-6 pt-6">
                <div className="flex items-center justify-between space-y-2">
                     <h2 className="text-3xl font-bold tracking-tight">System Settings</h2>
                </div>
-
 
                <div className="grid gap-6">
                     {/* Voting Status Card */}
@@ -95,22 +134,80 @@ export default function SettingsPage() {
                                    />
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                   <div className="space-y-2">
-                                        <Label>Waktu Mulai</Label>
-                                        <Input
-                                             type="datetime-local"
-                                             value={settings.startDate}
-                                             onChange={(e) => setSettings({ ...settings, startDate: e.target.value })}
-                                        />
+                              {/* Multi-date Schedule */}
+                              <div className="space-y-4">
+                                   <div className="flex items-center gap-2">
+                                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                                        <Label className="text-base">Jadwal Voting (Multiple Hari)</Label>
                                    </div>
-                                   <div className="space-y-2">
-                                        <Label>Waktu Selesai</Label>
-                                        <Input
-                                             type="datetime-local"
-                                             value={settings.endDate}
-                                             onChange={(e) => setSettings({ ...settings, endDate: e.target.value })}
-                                        />
+                                   <p className="text-sm text-muted-foreground -mt-2">
+                                        Pilih satu atau beberapa tanggal. Jam mulai dan selesai berlaku sama untuk semua hari.
+                                   </p>
+
+                                   <div className="flex flex-col lg:flex-row gap-6">
+                                        <div className="border rounded-lg p-1 w-fit">
+                                             <Calendar
+                                                  mode="multiple"
+                                                  selected={selectedDates}
+                                                  onSelect={handleCalendarSelect}
+                                                  numberOfMonths={2}
+                                                  className="rounded-md"
+                                             />
+                                        </div>
+
+                                        <div className="flex-1 space-y-4">
+                                             <div className="grid grid-cols-2 gap-4">
+                                                  <div className="space-y-2">
+                                                       <Label>Jam Mulai</Label>
+                                                       <Input
+                                                            type="time"
+                                                            value={schedules.startTime}
+                                                            onChange={(e) => setSchedules((p) => ({ ...p, startTime: e.target.value }))}
+                                                       />
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                       <Label>Jam Selesai</Label>
+                                                       <Input
+                                                            type="time"
+                                                            value={schedules.endTime}
+                                                            onChange={(e) => setSchedules((p) => ({ ...p, endTime: e.target.value }))}
+                                                       />
+                                                  </div>
+                                             </div>
+
+                                             <div className="space-y-2">
+                                                  <Label>Tanggal Dipilih ({schedules.dates.length})</Label>
+                                                  {schedules.dates.length === 0 ? (
+                                                       <p className="text-sm text-muted-foreground">Belum ada tanggal dipilih.</p>
+                                                  ) : (
+                                                       <div className="flex flex-wrap gap-2">
+                                                            {schedules.dates.map((d) => (
+                                                                 <Badge key={d} variant="secondary" className="gap-1 pr-1">
+                                                                      {format(parseISO(d), "dd MMM yyyy", { locale: localeId })}
+                                                                      <button
+                                                                           onClick={() => removeDate(d)}
+                                                                           className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                                                      >
+                                                                           <X className="h-3 w-3" />
+                                                                      </button>
+                                                                 </Badge>
+                                                            ))}
+                                                       </div>
+                                                  )}
+                                             </div>
+
+                                             {schedules.dates.length > 0 && (
+                                                  <div className="rounded-lg bg-muted/50 border p-3 text-sm text-muted-foreground space-y-1">
+                                                       <p className="font-medium text-foreground">Ringkasan Jadwal</p>
+                                                       {schedules.dates.map((d) => (
+                                                            <p key={d}>
+                                                                 {format(parseISO(d), "EEEE, dd MMMM yyyy", { locale: localeId })}
+                                                                 {" — "}{schedules.startTime} s/d {schedules.endTime} WIB
+                                                            </p>
+                                                       ))}
+                                                  </div>
+                                             )}
+                                        </div>
                                    </div>
                               </div>
                          </CardContent>
@@ -190,3 +287,4 @@ export default function SettingsPage() {
           </div>
      );
 }
+

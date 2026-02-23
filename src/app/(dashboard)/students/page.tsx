@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +7,7 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/data-table";
-import { FileUp, Search, RefreshCw, Plus, Pencil } from "lucide-react";
+import { FileUp, Search, RefreshCw, Plus, Pencil, MoreHorizontal } from "lucide-react";
 import { ImportModal } from "./import-modal";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+     DropdownMenu,
+     DropdownMenuContent,
+     DropdownMenuItem,
+     DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -104,7 +110,7 @@ export default function StudentsPage() {
                async () => {
                     const res = await api.post('/votes/checkin', { nim });
                     refetch();
-                    return res; 
+                    return res;
                },
                {
                     loading: 'Verifikasi kehadiran (Offline)...',
@@ -187,7 +193,7 @@ export default function StudentsPage() {
           if (selectedIndices.length === 0) return;
 
           const selectedStudentIds = selectedIndices.map(idx => students[Number(idx)]?.id).filter(Boolean);
-          
+
           if (selectedStudentIds.length === 0) return;
 
           const updates: any = {};
@@ -296,7 +302,8 @@ export default function StudentsPage() {
                          <h2 className="text-3xl font-bold tracking-tight">Mahasiswa</h2>
                          <p className="text-muted-foreground text-sm">Kelola data pemilih dan monitor status voting.</p>
                     </div>
-                    <div className="flex flex-col md:flex-row gap-2">
+                    {/* Desktop */}
+                    <div className="hidden sm:flex flex-row gap-2">
                          <Button onClick={() => setIsAddOpen(true)} className="gap-2" variant="outline">
                               <Plus className="h-4 w-4" />
                               Tambah Manual
@@ -311,6 +318,29 @@ export default function StudentsPage() {
                                    Edit ({Object.keys(rowSelection).length})
                               </Button>
                          )}
+                    </div>
+                    {/* Mobile dropdown */}
+                    <div className="sm:hidden">
+                         <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                   <Button variant="outline" size="icon">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                   </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                   <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
+                                        <Plus className="mr-2 h-4 w-4" /> Tambah Manual
+                                   </DropdownMenuItem>
+                                   <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                                        <FileUp className="mr-2 h-4 w-4" /> Import Excel
+                                   </DropdownMenuItem>
+                                   {Object.keys(rowSelection).length > 0 && (
+                                        <DropdownMenuItem onClick={() => setIsBulkEditOpen(true)}>
+                                             <Pencil className="mr-2 h-4 w-4" /> Edit ({Object.keys(rowSelection).length})
+                                        </DropdownMenuItem>
+                                   )}
+                              </DropdownMenuContent>
+                         </DropdownMenu>
                     </div>
                </div>
 
@@ -337,9 +367,9 @@ export default function StudentsPage() {
                     </div>
                </div>
 
-               <DataTable 
-                    columns={columns} 
-                    data={students.map((student: any) => ({ ...student, deletedAt: student.deletedAt }))} 
+               <DataTable
+                    columns={columns}
+                    data={students.map((student: any) => ({ ...student, deletedAt: student.deletedAt }))}
                     rowSelection={rowSelection}
                     onRowSelectionChange={setRowSelection}
                />

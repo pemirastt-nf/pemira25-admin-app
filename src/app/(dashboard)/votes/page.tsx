@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
 import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fixUtcToWib } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,6 +38,7 @@ export default function VotesPage() {
      const [votingDay, setVotingDay] = useState("Hari 1");
      const [submitting, setSubmitting] = useState(false);
      const [voteToDelete, setVoteToDelete] = useState<{ id: string, timestamp: string } | null>(null);
+     const [searchQuery, setSearchQuery] = useState("");
 
      interface InflationDetail {
           present: number;
@@ -101,7 +103,7 @@ export default function VotesPage() {
           }
      };
 
-     const handleDeleteClick = (voteId: string, timestamp: string) => {
+     const handleDeleteClick = useCallback((voteId: string, timestamp: string) => {
 
           const voteTime = fixUtcToWib(timestamp).getTime();
           const now = new Date().getTime();
@@ -114,7 +116,7 @@ export default function VotesPage() {
           }
 
           setVoteToDelete({ id: voteId, timestamp });
-     };
+     }, []);
 
      const confirmDelete = async () => {
           if (!voteToDelete) return;
@@ -131,14 +133,104 @@ export default function VotesPage() {
           }
      };
 
+     const filteredLogs = useMemo(() => {
+          if (!activityLogs) return [];
+          if (!searchQuery.trim()) return activityLogs;
+          const q = searchQuery.toLowerCase();
+          return activityLogs.filter((log: any) =>
+               (log.candidateName || "").toLowerCase().includes(q) ||
+               (log.source || "").toLowerCase().includes(q) ||
+               (log.location || "").toLowerCase().includes(q) ||
+               (log.votingDay || "").toLowerCase().includes(q)
+          );
+     }, [activityLogs, searchQuery]);
+
+     const columns = useMemo<ColumnDef<any>[]>(() => [
+          {
+               accessorKey: "timestamp",
+               header: "Waktu",
+               cell: ({ row }) => {
+                    const ts = row.original.timestamp;
+                    return (
+                         <div className="flex flex-col">
+                              <span className="font-medium text-muted-foreground">
+                                   {fixUtcToWib(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                              </span>
+                              <span className="text-xs text-muted-foreground/60">
+                                   {fixUtcToWib(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ({formatDistanceToNow(fixUtcToWib(ts), { addSuffix: true, locale: idLocale })})
+                              </span>
+                         </div>
+                    );
+               },
+          },
+          {
+               accessorKey: "source",
+               header: "Sumber",
+               cell: ({ row }) => (
+                    <Badge variant={row.original.source === 'online' ? "default" : "secondary"}>
+                         {row.original.source === 'online' ? "Online" : "Offline"}
+                    </Badge>
+               ),
+          },
+          {
+               accessorKey: "candidateName",
+               header: "Kandidat",
+               cell: ({ row }) => (
+                    <span className="font-medium">{row.original.candidateName || "Secret"}</span>
+               ),
+          },
+          {
+               id: "detail",
+               header: "Detail Lokasi",
+               enableSorting: false,
+               cell: ({ row }) => {
+                    const log = row.original;
+                    if (log.source === 'online') return <span className="text-muted-foreground text-xs italic">-</span>;
+                    return (
+                         <div className="flex items-center gap-2">
+                              {log.votingDay && (
+                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                                        {log.votingDay}
+                                   </Badge>
+                              )}
+                              {log.location && (
+                                   <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">
+                                        {log.location}
+                                   </Badge>
+                              )}
+                              {!log.votingDay && !log.location && <span className="text-muted-foreground text-xs">-</span>}
+                         </div>
+                    );
+               },
+          },
+          ...(user?.role === 'super_admin' ? [{
+               id: "aksi",
+               header: () => <div className="text-right">Aksi</div>,
+               enableSorting: false,
+               cell: ({ row }: any) => (
+                    <div className="flex justify-end">
+                         <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteClick(row.original.id, row.original.timestamp)}
+                              title="Hapus (Hanya kurang dari 1 jam)"
+                         >
+                              <Trash2 className="h-4 w-4" />
+                         </Button>
+                    </div>
+               ),
+          }] : []),
+     ], [user?.role, handleDeleteClick]);
+
      return (
           <div className="space-y-6">
                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Manajemen Suara</h2>
+                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Manajemen Suara</h2>
                     <p className="text-muted-foreground text-sm">Monitor perolehan suara dan input suara manual (offline).</p>
                </div>
 
-               <div className="grid gap-6 md:grid-cols-2">
+               <div className="grid gap-6 lg:grid-cols-2">
                     {/* Input Form */}
                     <Card>
                          <CardHeader>
@@ -176,7 +268,7 @@ export default function VotesPage() {
                                         </div>
                                    </div>
 
-                                   <div className="grid grid-cols-2 gap-4">
+                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="grid gap-2">
                                              <Label htmlFor="votingDay">Sesi / Hari</Label>
                                              <Input
@@ -295,7 +387,7 @@ export default function VotesPage() {
                     </Card>
 
                     {/* Activity Table */}
-                    <Card className="col-span-2">
+                    <Card className="col-span-1 lg:col-span-2">
                          <CardHeader>
                               <CardTitle>Riwayat Aktivitas Suara</CardTitle>
                               <CardDescription>
@@ -303,83 +395,18 @@ export default function VotesPage() {
                               </CardDescription>
                          </CardHeader>
                          <CardContent>
-                              <Table>
-                                   <TableHeader>
-                                        <TableRow>
-                                             <TableHead className="w-45">Waktu</TableHead>
-                                             <TableHead>Sumber</TableHead>
-                                             <TableHead>Kandidat</TableHead>
-                                             <TableHead>Detail Lokasi</TableHead>
-                                             {user?.role === 'super_admin' && (
-                                                  <TableHead className="text-right">Aksi</TableHead>
-                                             )}
-                                        </TableRow>
-                                   </TableHeader>
-                                   <TableBody>
-                                        {activityLogs?.length === 0 ? (
-                                             <TableRow>
-                                                  <TableCell colSpan={5} className="h-24 text-center">
-                                                       Belum ada data suara masuk.
-                                                  </TableCell>
-                                             </TableRow>
-                                        ) : (
-                                             activityLogs?.map((log: any) => (
-                                                  <TableRow key={log.id}>
-                                                       <TableCell className="font-medium text-muted-foreground">
-                                                            <div className="flex flex-col">
-                                                                 <span>{fixUtcToWib(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
-                                                                 <span className="text-xs text-muted-foreground/60">
-                                                                      {fixUtcToWib(log.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} ({formatDistanceToNow(fixUtcToWib(log.timestamp), { addSuffix: true, locale: idLocale })})
-                                                                 </span>
-                                                            </div>
-                                                       </TableCell>
-                                                       <TableCell>
-                                                            <Badge variant={log.source === 'online' ? "default" : "secondary"}>
-                                                                 {log.source === 'online' ? "Online" : "Offline"}
-                                                            </Badge>
-                                                       </TableCell>
-                                                       <TableCell>
-                                                            <span className="font-medium">{log.candidateName || "Secret"}</span>
-                                                       </TableCell>
-                                                       <TableCell>
-                                                            <div className="flex items-center gap-2">
-                                                                 {log.source === 'online' ? (
-                                                                      <span className="text-muted-foreground text-xs italic">-</span>
-                                                                 ) : (
-                                                                      <>
-                                                                           {log.votingDay && (
-                                                                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                                                                                     {log.votingDay}
-                                                                                </Badge>
-                                                                           )}
-                                                                           {log.location && (
-                                                                                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">
-                                                                                     {log.location}
-                                                                                </Badge>
-                                                                           )}
-                                                                           {!log.votingDay && !log.location && <span className="text-muted-foreground text-xs">-</span>}
-                                                                      </>
-                                                                 )}
-                                                            </div>
-                                                       </TableCell>
-                                                       {user?.role === 'super_admin' && (
-                                                            <TableCell className="text-right">
-                                                                 <Button
-                                                                      variant="ghost"
-                                                                      size="icon"
-                                                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                      onClick={() => handleDeleteClick(log.id, log.timestamp)}
-                                                                      title="Hapus (Hanya kurang dari 1 jam)"
-                                                                 >
-                                                                      <Trash2 className="h-4 w-4" />
-                                                                 </Button>
-                                                            </TableCell>
-                                                       )}
-                                                  </TableRow>
-                                             ))
-                                        )}
-                                   </TableBody>
-                              </Table>
+                              <DataTable
+                                   columns={columns}
+                                   data={filteredLogs}
+                                   toolbar={
+                                        <Input
+                                             placeholder="Cari kandidat, sumber, lokasi..."
+                                             value={searchQuery}
+                                             onChange={(e) => setSearchQuery(e.target.value)}
+                                             className="max-w-sm"
+                                        />
+                                   }
+                              />
                          </CardContent>
                     </Card>
                </div>

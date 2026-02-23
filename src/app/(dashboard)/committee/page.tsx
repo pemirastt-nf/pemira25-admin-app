@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useApi } from "@/lib/api";
@@ -275,13 +275,32 @@ export default function CommitteePage() {
                          <h2 className="text-3xl font-bold tracking-tight">Panitia</h2>
                          <p className="text-muted-foreground text-sm">Kelola akun panitia dan hak akses sistem.</p>
                     </div>
-                    <div className="flex gap-2">
+                    {/* Desktop */}
+                    <div className="hidden sm:flex gap-2">
                          <Button variant="outline" onClick={() => setIsInviteOpen(true)}>
                               <LinkIcon className="mr-2 h-4 w-4" /> Undang via Link
                          </Button>
                          <Button onClick={handleCreate}>
                               <UserPlus className="mr-2 h-4 w-4" /> Tambah Manual
                          </Button>
+                    </div>
+                    {/* Mobile dropdown */}
+                    <div className="sm:hidden">
+                         <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                   <Button variant="outline" size="icon">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                   </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                   <DropdownMenuItem onClick={() => setIsInviteOpen(true)}>
+                                        <LinkIcon className="mr-2 h-4 w-4" /> Undang via Link
+                                   </DropdownMenuItem>
+                                   <DropdownMenuItem onClick={handleCreate}>
+                                        <UserPlus className="mr-2 h-4 w-4" /> Tambah Manual
+                                   </DropdownMenuItem>
+                              </DropdownMenuContent>
+                         </DropdownMenu>
                     </div>
                </div>
 

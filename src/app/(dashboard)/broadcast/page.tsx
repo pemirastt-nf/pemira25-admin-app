@@ -122,8 +122,8 @@ export default function BroadcastListPage() {
                          <p className="text-muted-foreground text-sm">Kelola pengumuman dan notifikasi email massal.</p>
                     </div>
                     <Button onClick={() => router.push('/broadcast/new')}>
-                         <Plus className="w-4 h-4 mr-2" />
-                         Buat Email Baru
+                         <Plus className="w-4 h-4 sm:mr-2" />
+                         <span className="hidden sm:inline">Buat Email Baru</span>
                     </Button>
                </div>
 
