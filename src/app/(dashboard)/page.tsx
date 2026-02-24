@@ -182,7 +182,7 @@ export default function DashboardPage() {
                               <div className="space-y-4">
                                    {activityData?.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No activity yet.</p>}
 
-                                   {activityData?.map((item: any) => (
+                                   {activityData?.slice(0, 5).map((item: any) => (
                                         <div key={item.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                                              <div className="flex items-center gap-4">
                                                   <Avatar className="h-9 w-9">
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                               </div>
                          </CardContent>
                     </Card>
-                    
+
                     <DailyVotesSection data={dailyData || []} />
                </div>
           </div>
