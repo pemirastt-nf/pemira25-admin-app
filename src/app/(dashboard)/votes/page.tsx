@@ -245,9 +245,9 @@ export default function VotesPage() {
                }
           },
           {
-               accessorKey: "batch",
-               header: "Angkatan",
-               cell: ({ row }) => <span>{row.original.batch}</span>
+               accessorKey: "candidate_name",
+               header: "Kandidat",
+               cell: ({ row }) => <span className="font-semibold">{row.original.candidate_name || "Misterius"}</span>
           },
           {
                accessorKey: "source",
