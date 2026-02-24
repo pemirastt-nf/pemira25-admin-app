@@ -67,16 +67,18 @@ export default function DashboardPage() {
           },
      });
 
+     const filteredResultsData = resultsData?.filter((c: any) => c.name !== 'SUARA TIDAK SAH') || [];
+
      const stats = {
           totalVoters: statsData?.totalVoters || 0,
           totalVotes: statsData?.votesCast || 0,
           onlineVotes: statsData?.onlineVotes || 0,
           offlineVotes: statsData?.offlineVotes || 0,
           turnout: statsData?.turnout || "0%",
-          activeCandidates: resultsData?.length || 0,
+          activeCandidates: filteredResultsData.length,
      };
 
-     const chartData = resultsData || [];
+     const chartData = filteredResultsData;
 
      const handleDownloadReport = () => {
           if (!resultsData || !statsData) {
@@ -98,7 +100,7 @@ export default function DashboardPage() {
           csvContent += `--- PEROLEHAN SUARA KANDIDAT ---\n`;
           csvContent += `No Urut,Nama Kandidat,Suara Online,Suara Offline,Total Suara,Persentase\n`;
 
-          resultsData.forEach((candidate: any) => {
+          filteredResultsData.forEach((candidate: any) => {
                const percentage = stats.totalVotes > 0 ? (candidate.votes / stats.totalVotes) * 100 : 0;
                csvContent += `${candidate.orderNumber},"${candidate.name}",${candidate.onlineVotes},${candidate.offlineVotes},${candidate.votes},${percentage.toFixed(2)}%\n`;
           });

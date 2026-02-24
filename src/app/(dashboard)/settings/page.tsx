@@ -13,6 +13,16 @@ import { api } from "@/lib/api";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import {
+     AlertDialog,
+     AlertDialogAction,
+     AlertDialogCancel,
+     AlertDialogContent,
+     AlertDialogDescription,
+     AlertDialogFooter,
+     AlertDialogHeader,
+     AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface VotingSchedules {
      dates: string[];   // YYYY-MM-DD
@@ -27,7 +37,8 @@ export default function SettingsPage() {
           announcementMessage: "",
           showAnnouncement: false,
           allowOtpEmail: true,
-          allowBroadcastEmail: true
+          allowBroadcastEmail: true,
+          isWinnerPublished: false
      });
 
      const [schedules, setSchedules] = useState<VotingSchedules>({
@@ -35,6 +46,8 @@ export default function SettingsPage() {
           startTime: "08:00",
           endTime: "16:00",
      });
+
+     const [isWinnerDialogOpen, setIsWinnerDialogOpen] = useState(false);
 
      const fetchSettings = useCallback(async () => {
           try {
@@ -46,6 +59,7 @@ export default function SettingsPage() {
                     showAnnouncement: data.showAnnouncement,
                     allowOtpEmail: data.allowOtpEmail,
                     allowBroadcastEmail: data.allowBroadcastEmail,
+                    isWinnerPublished: data.isWinnerPublished || false,
                });
                if (data.votingSchedules) {
                     setSchedules(data.votingSchedules);
@@ -277,6 +291,53 @@ export default function SettingsPage() {
                                         onCheckedChange={(checked) => setSettings({ ...settings, allowBroadcastEmail: checked })}
                                    />
                               </div>
+                         </CardContent>
+                    </Card>
+
+                    {/* Winner Announcement Card */}
+                    <Card className="border-primary/50 bg-primary/5">
+                         <CardHeader>
+                              <CardTitle className="text-primary">Pengumuman Pemenang PEMIRA</CardTitle>
+                              <CardDescription>Publikasikan hasil akhir dan pemenang ke halaman mahasiswa.</CardDescription>
+                         </CardHeader>
+                         <CardContent className="space-y-6">
+                              <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-background/50 p-4">
+                                   <div className="space-y-0.5">
+                                        <Label className="text-base font-semibold">Publikasikan Pemenang</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                             Jika diaktifkan, kandidat pemenang akan terpampang jelas di halaman depan mahasiswa.
+                                        </p>
+                                   </div>
+                                   <Switch
+                                        checked={settings.isWinnerPublished}
+                                        onCheckedChange={(checked) => {
+                                             if (checked) {
+                                                  setIsWinnerDialogOpen(true);
+                                             } else {
+                                                  setSettings({ ...settings, isWinnerPublished: false });
+                                             }
+                                        }}
+                                   />
+                              </div>
+
+                              <AlertDialog open={isWinnerDialogOpen} onOpenChange={setIsWinnerDialogOpen}>
+                                   <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                             <AlertDialogTitle>Konfirmasi Publikasi Pemenang</AlertDialogTitle>
+                                             <AlertDialogDescription>
+                                                  Apakah Anda yakin ingin mempublikasikan pemenang ke publik? Pastikan semua rekapitulasi suara sudah final dan tervalidasi. Tindakan ini akan langsung terlihat oleh mahasiswa di halaman depan.
+                                             </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                             <AlertDialogCancel>Batal</AlertDialogCancel>
+                                             <AlertDialogAction onClick={() => {
+                                                  setSettings({ ...settings, isWinnerPublished: true });
+                                             }}>
+                                                  Ya, Publikasikan
+                                             </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                   </AlertDialogContent>
+                              </AlertDialog>
                          </CardContent>
                     </Card>
 
