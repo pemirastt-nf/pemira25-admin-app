@@ -285,9 +285,9 @@ export default function VotesPage() {
                               <form onSubmit={handleManualVote} className="space-y-4">
                                    <div className="grid gap-2">
                                         <Label>Pilih Kandidat untuk Ditambahkan</Label>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-4 gap-4">
                                              {candidates?.map((c: any) => (
-                                                  <div key={c.id} className="relative">
+                                                  <div key={c.id} className="relative col-span-4 sm:col-span-2">
                                                        <input
                                                             type="radio"
                                                             id={c.id}
@@ -300,13 +300,34 @@ export default function VotesPage() {
                                                        />
                                                        <Label
                                                             htmlFor={c.id}
-                                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-checked:border-primary peer-checked:bg-accent peer-checked:text-accent-foreground cursor-pointer transition-all"
+                                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-checked:border-primary peer-checked:bg-accent peer-checked:text-accent-foreground cursor-pointer transition-all h-full"
                                                        >
                                                             <span className="text-xl font-bold mb-2 text-primary">#{c.orderNumber}</span>
                                                             <span className="text-sm font-medium text-center">{c.name}</span>
                                                        </Label>
                                                   </div>
                                              ))}
+                                             <div className="relative col-span-4 mt-2 border-t pt-4">
+                                                  <input
+                                                       type="radio"
+                                                       id="invalid_vote"
+                                                       name="candidate"
+                                                       value="invalid"
+                                                       className="peer sr-only"
+                                                       checked={candidateId === 'invalid'}
+                                                       onChange={(e) => setCandidateId(e.target.value)}
+                                                       required
+                                                  />
+                                                  <Label
+                                                       htmlFor="invalid_vote"
+                                                       className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 p-4 peer-checked:border-destructive peer-checked:bg-destructive/10 peer-checked:text-destructive cursor-pointer transition-all h-full"
+                                                  >
+                                                       <div className="flex items-center gap-3">
+                                                            <span className="text-xl font-bold">❌</span>
+                                                            <span className="text-sm font-bold">SUARA TIDAK SAH (RUSAK)</span>
+                                                       </div>
+                                                  </Label>
+                                             </div>
                                         </div>
                                    </div>
 
