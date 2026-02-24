@@ -67,6 +67,15 @@ export default function VotesPage() {
           refetchInterval: 5000
      });
 
+     const { data: dailyC1Data } = useQuery({
+          queryKey: ['vote-daily-c1'],
+          queryFn: async () => {
+               const res = await api.get('/votes/daily-c1');
+               return res.data;
+          },
+          refetchInterval: 10000
+     });
+
      const handleManualVote = async (e: React.FormEvent) => {
           e.preventDefault();
           setSubmitting(true);
@@ -222,6 +231,39 @@ export default function VotesPage() {
                ),
           }] : []),
      ], [user?.role, handleDeleteClick]);
+
+     const c1Columns = useMemo<ColumnDef<any>[]>(() => [
+          {
+               accessorKey: "date",
+               header: "Tanggal",
+               cell: ({ row }) => {
+                    return (
+                         <span className="font-medium">
+                              {new Date(row.original.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                         </span>
+                    );
+               }
+          },
+          {
+               accessorKey: "batch",
+               header: "Angkatan",
+               cell: ({ row }) => <Badge variant="outline" className="bg-slate-100">{row.original.batch}</Badge>
+          },
+          {
+               accessorKey: "source",
+               header: "Metode",
+               cell: ({ row }) => (
+                    <Badge variant={row.original.source === 'online' ? "default" : "secondary"}>
+                         {row.original.source === 'online' ? "Online" : "Offline"}
+                    </Badge>
+               )
+          },
+          {
+               accessorKey: "count",
+               header: () => <div className="text-right">Total Suara</div>,
+               cell: ({ row }) => <div className="text-right font-bold text-lg">{row.original.count}</div>
+          },
+     ], []);
 
      return (
           <div className="space-y-6">
@@ -406,6 +448,22 @@ export default function VotesPage() {
                                              className="max-w-sm"
                                         />
                                    }
+                              />
+                         </CardContent>
+                    </Card>
+
+                    {/* Daily C1 Report Table */}
+                    <Card className="col-span-1 lg:col-span-2">
+                         <CardHeader>
+                              <CardTitle>Laporan Harian</CardTitle>
+                              <CardDescription>
+                                   Rekapitulasi total suara per hari berdasarkan angkatan dan metode.
+                              </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                              <DataTable
+                                   columns={c1Columns}
+                                   data={dailyC1Data || []}
                               />
                          </CardContent>
                     </Card>
