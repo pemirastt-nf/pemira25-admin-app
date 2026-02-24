@@ -247,7 +247,7 @@ export default function VotesPage() {
           {
                accessorKey: "batch",
                header: "Angkatan",
-               cell: ({ row }) => <Badge variant="outline" className="bg-slate-100">{row.original.batch}</Badge>
+               cell: ({ row }) => <span>{row.original.batch}</span>
           },
           {
                accessorKey: "source",
