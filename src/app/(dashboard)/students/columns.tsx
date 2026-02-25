@@ -141,7 +141,18 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
      },
      {
           accessorKey: "batch",
-          header: "Angkatan",
+          header: ({ column }: { column: any }) => {
+               return (
+                    <Button
+                         variant="ghost"
+                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                         className="h-auto p-0 hover:bg-transparent"
+                    >
+                         Angkatan
+                         <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+               )
+          },
           cell: ({ row }: { row: any }) => <div>{row.getValue("batch") || "-"}</div>,
      },
      {
@@ -161,8 +172,8 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
                          <Badge
                               variant="outline"
                               className={`${accessType === 'offline'
-                                        ? "bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200"
-                                        : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                   ? "bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200"
+                                   : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                                    } w-30 justify-center py-1 whitespace-nowrap`}
                          >
                               {accessType === 'offline' ? "Offline (TPS)" : "Online (Web)"}
@@ -192,8 +203,8 @@ export const createColumns = (actions: ColumnActionsProps): ColumnDef<Student>[]
                          <Badge
                               variant="outline"
                               className={`${hasVoted
-                                        ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
-                                        : "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200"
+                                   ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                                   : "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200"
                                    } w-32.5 justify-center py-1 whitespace-nowrap`}
                          >
                               {hasVoted ? "Sudah Memilih" : "Belum Memilih"}
