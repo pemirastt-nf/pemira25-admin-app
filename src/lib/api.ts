@@ -19,11 +19,35 @@ const api = axios.create({
      },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
      if (typeof window !== 'undefined') {
           const token = adminStorage.getItem('admin_token');
           if (token) {
                config.headers.Authorization = `Bearer ${token}`;
+          }
+
+          try {
+               // Client-side IP tracking to bypass proxy restrictions
+               const locCache = sessionStorage.getItem('admin_loc_cache');
+               if (locCache) {
+                    const parsed = JSON.parse(locCache);
+                    config.headers['x-client-ip'] = parsed.ip;
+                    config.headers['x-client-location'] = parsed.location;
+               } else {
+                    const res = await fetch('https://freeipapi.com/api/json/', { method: 'GET' });
+                    if (res.ok) {
+                         const data = await res.json();
+                         const ip = data.ipAddress || '';
+                         const location = [data.cityName, data.regionName, data.countryName].filter(Boolean).join(', ');
+
+                         sessionStorage.setItem('admin_loc_cache', JSON.stringify({ ip, location }));
+
+                         config.headers['x-client-ip'] = ip;
+                         config.headers['x-client-location'] = location;
+                    }
+               }
+          } catch (e) {
+               // Proceed anyway if location fetch fails (e.g., adblocker)
           }
      }
      return config;
