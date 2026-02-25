@@ -27,27 +27,36 @@ api.interceptors.request.use(async (config) => {
           }
 
           try {
-               // Client-side IP tracking to bypass proxy restrictions
+               let traceData: { ip: string; location: string } | null = null;
                const locCache = sessionStorage.getItem('admin_loc_cache');
                if (locCache) {
-                    const parsed = JSON.parse(locCache);
-                    config.headers['x-client-ip'] = parsed.ip;
-                    config.headers['x-client-location'] = parsed.location;
+                    traceData = JSON.parse(locCache);
                } else {
                     const res = await fetch('https://freeipapi.com/api/json/', { method: 'GET' });
                     if (res.ok) {
                          const data = await res.json();
                          const ip = data.ipAddress || '';
                          const location = [data.cityName, data.regionName, data.countryName].filter(Boolean).join(', ');
-
-                         sessionStorage.setItem('admin_loc_cache', JSON.stringify({ ip, location }));
-
-                         config.headers['x-client-ip'] = ip;
-                         config.headers['x-client-location'] = location;
+                         traceData = { ip, location };
+                         sessionStorage.setItem('admin_loc_cache', JSON.stringify(traceData));
                     }
                }
-          } catch (e) {
-               // Proceed anyway if location fetch fails (e.g., adblocker)
+
+               if (traceData && config.data) {
+                    if (typeof config.data === 'string') {
+                         try {
+                              const parsed = JSON.parse(config.data);
+                              parsed._clientIp = traceData.ip;
+                              parsed._clientLocation = traceData.location;
+                              config.data = JSON.stringify(parsed);
+                         } catch { /* not JSON, skip */ }
+                    } else if (typeof config.data === 'object') {
+                         config.data._clientIp = traceData.ip;
+                         config.data._clientLocation = traceData.location;
+                    }
+               }
+          } catch {
+               // Proceed anyway if location fetch fails
           }
      }
      return config;
