@@ -32,11 +32,37 @@ api.interceptors.request.use(async (config) => {
                if (locCache) {
                     traceData = JSON.parse(locCache);
                } else {
-                    const res = await fetch('https://freeipapi.com/api/json/', { method: 'GET' });
-                    if (res.ok) {
-                         const data = await res.json();
-                         const ip = data.ipAddress || '';
-                         const location = [data.cityName, data.regionName, data.countryName].filter(Boolean).join(', ');
+                    let ip = '';
+                    let location = '';
+
+                    try {
+                         const res = await fetch('https://freeipapi.com/api/json/', { method: 'GET', signal: AbortSignal.timeout(3000) });
+                         if (res.ok) {
+                              const data = await res.json();
+                              ip = String(data.ipAddress || '');
+                              location = [data.cityName, data.regionName, data.countryName].filter(Boolean).join(', ');
+                         }
+                    } catch {
+                         // Silently ignore freeipapi block
+                    }
+
+                    if (!ip) {
+                         try {
+                              const cfRes = await fetch('/cdn-cgi/trace', { signal: AbortSignal.timeout(3000) });
+                              if (cfRes.ok) {
+                                   const text = await cfRes.text();
+                                   const lines = text.split('\n');
+                                   for (const line of lines) {
+                                        if (line.startsWith('ip=')) ip = line.split('=')[1].trim();
+                                        if (line.startsWith('loc=')) location = line.split('=')[1].trim() + ' (Cloudflare)';
+                                   }
+                              }
+                         } catch {
+                              // Final fallback fails
+                         }
+                    }
+
+                    if (ip) {
                          traceData = { ip, location };
                          sessionStorage.setItem('admin_loc_cache', JSON.stringify(traceData));
                     }
